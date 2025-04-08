@@ -406,20 +406,33 @@ export default {
             life: 3000
           })
           
-          // Force refresh meetings list - wait for it to complete
-          console.log('Refreshing meetings list after creation')
+          console.log('Meeting created with ID:', result.meeting_id)
+          
+          // Wait a bit for backend to fully process the meeting
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Force refresh meetings list multiple times with increasing delays
+          console.log('Refreshing meetings list after creation - attempt 1')
           try {
             const meetings = await this.$store.dispatch('getActiveMeetings', { forceRefresh: true })
-            console.log('Meetings refreshed, found:', meetings)
+            console.log('Meetings refreshed (attempt 1), found:', meetings)
+            
+            // If no meetings found, try again after a delay
+            if (!meetings || meetings.length === 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000))
+              console.log('Refreshing meetings list after creation - attempt 2')
+              const meetings2 = await this.$store.dispatch('getActiveMeetings', { forceRefresh: true })
+              console.log('Meetings refreshed (attempt 2), found:', meetings2)
+            }
           } catch (error) {
             console.error('Error refreshing meetings:', error)
           }
           
-          // Create a small delay to ensure everything is updated
+          // Create a delay to ensure everything is updated
           setTimeout(() => {
             // Navigate back to meetings list
             this.$router.push('/meetings')
-          }, 300)
+          }, 500)
         } else {
           throw new Error('Failed to create meeting - no meeting ID returned')
         }

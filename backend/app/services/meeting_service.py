@@ -10,25 +10,41 @@ class MeetingService:
 
     def create_meeting(self, title, description, t1, t2, lat, long, participants):
         """Create a new meeting"""
+        # Convert datetime strings to datetime objects if needed
+        if isinstance(t1, str):
+            t1_datetime = datetime.fromisoformat(t1.replace('Z', '+00:00'))
+        else:
+            t1_datetime = t1
+            
+        if isinstance(t2, str):
+            t2_datetime = datetime.fromisoformat(t2.replace('Z', '+00:00'))
+        else:
+            t2_datetime = t2
+            
         # Add to database
-        meeting_id = self.db.add_meeting(title, description, t1, t2, lat, long, participants)
+        meeting_id = self.db.add_meeting(title, description, t1_datetime, t2_datetime, lat, long, participants)
 
         # Also activate in Redis for real-time operations
         if meeting_id:
-            # Check if this is a current/future meeting (not past)
+            # Get current time in UTC
             now = datetime.now(timezone.utc)
-            if t2 > now:
+            print(f"Current time: {now}, Meeting end time: {t2_datetime}")
+            
+            # Check if this is a current/future meeting (not past)
+            if t2_datetime > now:
                 # Activate in Redis
-                self.redis_mgr.activate_meeting(
+                result = self.redis_mgr.activate_meeting(
                     meeting_id,
                     title,
                     description,
                     lat,
                     long,
                     participants,
-                    t2
+                    t2_datetime
                 )
-                print(f"Meeting {meeting_id} created and activated in Redis")
+                print(f"Meeting {meeting_id} created and activated in Redis: {result}")
+            else:
+                print(f"Meeting {meeting_id} created but not activated in Redis (past end time)")
 
         return meeting_id
 
@@ -86,18 +102,36 @@ class MeetingService:
 
     def get_active_meetings(self):
         """Get all active meetings"""
-        # Check if we need to sync meetings from DB to Redis
+        # Get current active meetings from database
         db_meetings = self._get_active_meetings_from_db()
         redis_meetings = self.redis_mgr.get_active_meetings()
-
-        # If no meetings in Redis but we have meetings in the DB, sync them
-        if len(redis_meetings) == 0 and len(db_meetings) > 0:
-            print(f"Syncing {len(db_meetings)} meetings from DB to Redis")
-            for meeting_id in db_meetings:
-                self._activate_meeting_in_redis(meeting_id)
+        
+        # Force a sync to make sure Redis and DB are in sync
+        # Find meetings in DB but not in Redis
+        db_meeting_ids = set(db_meetings)
+        redis_meeting_ids = set(redis_meetings)
+        
+        # Log current state
+        print(f"DB active meetings: {db_meeting_ids}")
+        print(f"Redis active meetings: {redis_meeting_ids}")
+        
+        # Meetings to add to Redis
+        meetings_to_add = db_meeting_ids - redis_meeting_ids
+        if meetings_to_add:
+            print(f"Syncing {len(meetings_to_add)} meetings from DB to Redis: {meetings_to_add}")
+            for meeting_id in meetings_to_add:
+                success = self._activate_meeting_in_redis(meeting_id)
+                print(f"Activated meeting {meeting_id} in Redis: {success}")
+            
             # Get updated list after sync
             redis_meetings = self.redis_mgr.get_active_meetings()
-
+            print(f"Updated Redis active meetings: {redis_meetings}")
+        
+        # Extra validation - return all active meetings from DB if Redis is empty after sync
+        if not redis_meetings and db_meetings:
+            print("Warning: Redis still has no meetings after sync, returning DB meetings")
+            return db_meetings
+            
         return redis_meetings
 
     def _get_active_meetings_from_db(self):

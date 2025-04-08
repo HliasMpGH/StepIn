@@ -2,10 +2,10 @@
   <div class="find-meetings-container">
     <div class="header">
       <h1>Find Nearby Meetings</h1>
-      <Button 
-        label="Create Meeting" 
-        icon="pi pi-plus" 
-        class="p-button-rounded p-button-success" 
+      <Button
+        label="Create Meeting"
+        icon="pi pi-plus"
+        class="p-button-rounded p-button-success"
         @click="$router.push('/meetings/create')"
       />
     </div>
@@ -20,7 +20,7 @@
       <template #content>
         <div class="p-fluid">
           <div id="map" class="map-container"></div>
-          
+
           <div class="map-details mt-3">
             <div class="location-info">
               <i class="pi pi-map-marker"></i>
@@ -40,10 +40,10 @@
               </div>
             </div>
             <div class="search-actions">
-              <Button 
-                label="Find Nearby Meetings" 
+              <Button
+                label="Find Nearby Meetings"
                 icon="pi pi-search" 
-                class="p-button-raised" 
+                class="p-button-raised"
                 :loading="loading"
                 @click="findNearbyMeetings"
               />
@@ -55,17 +55,17 @@
               />
             </div>
           </div>
-          
+
           <Divider />
-          
+
           <div class="meetings-section">
             <h3>Nearby Meetings</h3>
-            
+
             <div v-if="nearbyMeetings.length === 0" class="no-meetings">
               <i class="pi pi-info-circle mr-2"></i>
               <span>No nearby meetings found. Try a different location or create your own meeting.</span>
             </div>
-            
+
             <div v-else class="meeting-cards">
               <Card v-for="meeting in nearbyMeetings" :key="meeting.meeting_id" class="meeting-card">
                 <template #title>
@@ -88,20 +88,20 @@
                       <strong>Participants: </strong> {{ meeting.participants.split(',').length }}
                     </div>
                     <div class="meeting-location">
-                      <strong>Distance: </strong> 
+                      <strong>Distance: </strong>
                       {{ calculateDistance(location.lat, location.lng, meeting.lat, meeting.long).toFixed(0) }} meters away
                     </div>
                   </div>
                 </template>
                 <template #footer>
                   <div class="meeting-actions">
-                    <Button 
+                    <Button
                       label="View Details"
                       icon="pi pi-info-circle"
                       class="p-button-secondary mr-2"
                       @click="viewMeeting(meeting.meeting_id)"
                     />
-                    <Button 
+                    <Button
                       label="Join"
                       icon="pi pi-sign-in"
                       :disabled="isCurrentlyJoined(meeting.meeting_id)"
@@ -176,15 +176,15 @@ export default {
     },
     initMap() {
       if (this.map) return
-      
+
       // Create map
       this.map = L.map('map').setView([0, 0], 15)
-      
+
       // Add tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
       }).addTo(this.map)
-      
+
       // Add click handler to update location
       this.map.on('click', (e) => {
         this.location.lat = e.latlng.lat
@@ -192,7 +192,7 @@ export default {
         this.updateMarker()
         this.reverseGeocode(e.latlng.lat, e.latlng.lng)
       })
-      
+
       // Try to get user's current location
       this.getUserLocation()
     },
@@ -202,12 +202,12 @@ export default {
           position => {
             this.location.lat = position.coords.latitude
             this.location.lng = position.coords.longitude
-            
+
             // Center map on user's location
             this.map.setView([this.location.lat, this.location.lng], 15)
             this.updateMarker()
             this.reverseGeocode(this.location.lat, this.location.lng)
-            
+
             // Auto-find nearby meetings
             this.findNearbyMeetings()
           },
@@ -219,7 +219,7 @@ export default {
               detail: 'Unable to access your location. Please click on the map to set your position.',
               life: 5000
             })
-            
+
             // Set default location to Athens, Greece
             this.map.setView([37.9838, 23.7275], 13)
             this.locationAddress = 'Athens, Greece'
@@ -232,7 +232,7 @@ export default {
       if (this.userMarker) {
         this.map.removeLayer(this.userMarker)
       }
-      
+
       // Add new marker
       this.userMarker = L.marker([this.location.lat, this.location.lng], {
         draggable: true
@@ -240,7 +240,7 @@ export default {
         .addTo(this.map)
         .bindPopup('Your Location')
         .openPopup()
-      
+
       // Update location when marker is dragged
       this.userMarker.on('dragend', (e) => {
         const marker = e.target
@@ -256,17 +256,17 @@ export default {
         this.map.removeLayer(marker)
       })
       this.meetingMarkers = []
-      
+
       // Add markers for each nearby meeting
       this.nearbyMeetings.forEach(meeting => {
         const marker = L.marker([meeting.lat, meeting.long])
           .addTo(this.map)
           .bindPopup(`<b>${meeting.title}</b><br>${this.formatTime(meeting.t1)} - ${this.formatTime(meeting.t2)}`)
-        
+
         marker.on('click', () => {
           this.$router.push(`/meetings/${meeting.meeting_id}`)
         })
-        
+
         this.meetingMarkers.push(marker)
       })
     },
@@ -284,7 +284,7 @@ export default {
             'Accept-Language': 'en'
           }
         })
-        
+
         if (response.data && response.data.display_name) {
           this.locationAddress = response.data.display_name
         } else {
@@ -298,18 +298,18 @@ export default {
         this.geocodeLoading = false
       }
     },
-    
+
     createMeetingAtLocation() {
       // Store the location in Vuex
       this.$store.dispatch('setUserLocation', {
         lat: this.location.lat,
         lng: this.location.lng
       })
-      
+
       // Navigate to create meeting page
       this.$router.push('/create-meeting')
     },
-    
+
     async findNearbyMeetings() {
       try {
         this.loading = true
@@ -318,10 +318,10 @@ export default {
           y: this.location.lng
         })
         this.loading = false
-        
+
         // Update markers on map
         this.updateMeetingMarkers()
-        
+
         // Show a success message
         if (this.nearbyMeetings.length > 0) {
           this.$toast.add({
@@ -360,7 +360,7 @@ export default {
           detail: 'You have successfully joined the meeting',
           life: 3000
         })
-        
+
         // Navigate to dashboard
         this.$router.push('/')
       } catch (error) {
@@ -510,11 +510,11 @@ export default {
   .search-actions {
     flex-direction: column;
   }
-  
+
   .meeting-cards {
     grid-template-columns: 1fr;
   }
-  
+
   .map-container {
     height: 300px;
   }
@@ -524,19 +524,19 @@ export default {
   .find-meetings-container {
     margin: 0.5rem;
   }
-  
+
   .location-info {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
   }
-  
+
   .location-info .ml-auto {
     width: 100%;
     display: flex;
     justify-content: flex-end;
   }
-  
+
   .map-container {
     height: 250px;
   }

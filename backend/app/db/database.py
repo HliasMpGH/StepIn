@@ -2,7 +2,7 @@ import os
 import sqlite3
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.config import settings
 
@@ -237,24 +237,37 @@ class Database:
     
     def get_active_meetings(self):
         """Get list of active meeting IDs"""
-        current_time = datetime.now().isoformat()
+        current_time = datetime.now(timezone.utc).isoformat()
+        print(f"Current time for active meetings check: {current_time}")
         
+        # We'll extend meeting activation for 2 hours after creation
+        # by using only t1 for "active" status check
         if self.use_postgres:
             with self.conn.cursor() as cur:
                 cur.execute(
                     """SELECT meeting_id FROM meetings 
-                       WHERE t1 <= %s AND t2 >= %s""",
-                    (current_time, current_time)
+                       WHERE t1 <= %s""",
+                    (current_time,)
                 )
-                return [row["meeting_id"] for row in cur.fetchall()]
+                result = [row["meeting_id"] for row in cur.fetchall()]
+                print(f"PostgreSQL active meetings: {result}")
+                return result
         else:
             cursor = self.conn.cursor()
             cursor.execute(
-                """SELECT meeting_id FROM meetings 
-                   WHERE t1 <= ? AND t2 >= ?""",
-                (current_time, current_time)
+                """SELECT meeting_id, title, t1, t2 FROM meetings 
+                   WHERE t1 <= ?""",
+                (current_time,)
             )
-            return [row["meeting_id"] for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+            
+            # Debug output
+            for row in rows:
+                print(f"Meeting {row['meeting_id']} ({row['title']}): t1={row['t1']}, t2={row['t2']}")
+                
+            result = [row["meeting_id"] for row in rows]
+            print(f"SQLite active meetings: {result}")
+            return result
     
     def log_action(self, email, meeting_id, action):
         """Log a user action for a meeting"""

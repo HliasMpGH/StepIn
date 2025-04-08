@@ -175,10 +175,13 @@ export default createStore({
       try {
         commit('SET_LOADING', true)
         
-        console.log('Getting active meetings...')
+        console.log(`Getting active meetings... (forceRefresh=${forceRefresh})`)
+        
+        // Add a cache buster parameter for forceRefresh
+        const cacheParam = forceRefresh ? `?cache=${Date.now()}` : ''
         
         // Normal API flow
-        const response = await apiClient.get('/meetings/active')
+        const response = await apiClient.get(`/meetings/active${cacheParam}`)
         console.log('Active meetings response:', response.data)
         
         // Check if meetings array exists
@@ -191,26 +194,47 @@ export default createStore({
         
         console.log('Found meeting IDs:', response.data.meetings)
         
-        // Fetch details for each meeting
+        if (response.data.meetings.length === 0) {
+          console.log('Empty meetings array, returning empty list')
+          commit('SET_ACTIVE_MEETINGS', [])
+          commit('SET_LOADING', false)
+          return []
+        }
+        
+        // Fetch details for each meeting with a retry mechanism
         const meetings = []
+        const fetchMeetingWithRetry = async (meetingId, retries = 2) => {
+          try {
+            const response = await apiClient.get(`/meetings/${meetingId}${cacheParam}`)
+            console.log(`Meeting ${meetingId} detail received:`, response.data)
+            meetings.push(response.data)
+            return response.data
+          } catch (err) {
+            console.error(`Error fetching meeting ${meetingId}:`, err)
+            if (retries > 0) {
+              console.log(`Retrying fetch for meeting ${meetingId}, ${retries} retries left`)
+              await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms before retry
+              return fetchMeetingWithRetry(meetingId, retries - 1)
+            }
+            return null
+          }
+        }
+        
+        // Fetch all meetings in parallel
         const meetingPromises = response.data.meetings.map(meetingId => 
-          apiClient.get(`/meetings/${meetingId}`)
-            .then(meetingResponse => {
-              console.log('Meeting detail received:', meetingResponse.data)
-              meetings.push(meetingResponse.data)
-            })
-            .catch(err => {
-              console.error(`Error fetching meeting ${meetingId}:`, err)
-              // Continue with other meetings if one fails
-            })
+          fetchMeetingWithRetry(meetingId)
         )
         
+        // Wait for all fetches to complete
         await Promise.all(meetingPromises)
         
-        console.log('All meetings loaded:', meetings)
-        commit('SET_ACTIVE_MEETINGS', meetings)
+        // Filter out any null results from failed fetches
+        const validMeetings = meetings.filter(meeting => meeting !== null)
+        
+        console.log('All meetings loaded:', validMeetings)
+        commit('SET_ACTIVE_MEETINGS', validMeetings)
         commit('SET_LOADING', false)
-        return meetings
+        return validMeetings
       } catch (error) {
         console.error('Error in getActiveMeetings:', error)
         commit('SET_ERROR', error.response?.data?.detail || error.message || 'Error getting active meetings')

@@ -31,6 +31,8 @@ class RedisManager:
     
     def activate_meeting(self, meeting_id, title, description, lat, long, participants, t2):
         """Activate a meeting in Redis"""
+        print(f"Activating meeting in Redis: ID={meeting_id}, title={title}")
+        
         # Store meeting details
         meeting_key = f"{self.meeting_prefix}{meeting_id}"
         meeting_data = {
@@ -44,13 +46,16 @@ class RedisManager:
         }
         self.redis_client.hset(meeting_key, mapping=meeting_data)
         
-        # Add to active meetings set
-        self.redis_client.sadd(self.active_meetings_key, meeting_id)
+        # Add to active meetings set - convert meeting_id to string for Redis
+        meeting_id_str = str(meeting_id)
+        self.redis_client.sadd(self.active_meetings_key, meeting_id_str)
         
         # Initialize participants set
         participants_key = f"{self.participants_prefix}{meeting_id}"
         for email in participants.split(","):
-            self.redis_client.sadd(participants_key, email.strip())
+            email_clean = email.strip()
+            if email_clean:  # Skip empty emails
+                self.redis_client.sadd(participants_key, email_clean)
         
         # Initialize joined participants set
         joined_key = f"{self.joined_prefix}{meeting_id}"
@@ -60,12 +65,19 @@ class RedisManager:
         chat_key = f"{self.chat_prefix}{meeting_id}"
         self.redis_client.delete(chat_key)  # Ensure it's empty
         
+        # Verify the meeting was added
+        is_active = self.redis_client.sismember(self.active_meetings_key, meeting_id_str)
+        print(f"Meeting {meeting_id} active status in Redis: {is_active}")
+        
         return True
     
     def deactivate_meeting(self, meeting_id):
         """Deactivate a meeting in Redis"""
+        # Convert to string for Redis
+        meeting_id_str = str(meeting_id)
+        
         # Remove from active meetings set
-        self.redis_client.srem(self.active_meetings_key, meeting_id)
+        self.redis_client.srem(self.active_meetings_key, meeting_id_str)
         
         # Get list of joined participants for timeout logging
         joined_key = f"{self.joined_prefix}{meeting_id}"
@@ -79,17 +91,23 @@ class RedisManager:
         # For each joined user, remove this meeting from their active meetings
         for email in joined_participants:
             user_meetings_key = f"{self.user_meetings_prefix}{email}"
-            self.redis_client.srem(user_meetings_key, meeting_id)
+            self.redis_client.srem(user_meetings_key, meeting_id_str)
         
         # Delete all keys related to this meeting
         self.redis_client.delete(meeting_key, participants_key, joined_key, chat_key)
         
+        print(f"Deactivated meeting {meeting_id} from Redis")
         return list(joined_participants)
     
     def get_active_meetings(self):
         """Get list of all active meeting IDs"""
         meetings = self.redis_client.smembers(self.active_meetings_key)
-        return [int(m) for m in meetings] if meetings else []
+        print(f"Raw Redis active meetings: {meetings}")
+        
+        # Convert string IDs to integers
+        result = [int(m) for m in meetings] if meetings else []
+        print(f"Converted Redis active meetings: {result}")
+        return result
     
     def get_nearby_meetings_for_user(self, email, x, y, max_distance=100):
         """Get active meetings near user's location where user is a participant"""

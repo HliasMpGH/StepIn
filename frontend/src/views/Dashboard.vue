@@ -26,8 +26,10 @@
         </div>
       </div>
     </div>
-    
+
     <div class="dashboard-content">
+
+
       <div class="full-width-card">
         <Card class="dashboard-card status-card">
           <template #title>
@@ -57,16 +59,16 @@
                   </div>
                 </div>
                 <div class="status-actions">
-                  <Button 
-                    label="Open Chat" 
-                    icon="pi pi-comments" 
-                    class="p-button-success p-button-rounded mr-2"
+                  <Button
+                    label="Open Chat"
+                    icon="pi pi-comments"
+                    class="p-button-success p-button-lg mr-2"
                     @click="openChat"
                   />
-                  <Button 
-                    label="Leave" 
-                    icon="pi pi-sign-out" 
-                    class="p-button-danger p-button-rounded"
+                  <Button
+                    label="Leave"
+                    icon="pi pi-sign-out"
+                    class="p-button-danger p-button-lg"
                     @click="confirmLeave"
                   />
                 </div>
@@ -82,16 +84,16 @@
                   <p>Join an existing meeting or create a new one to start collaborating with others.</p>
                 </div>
                 <div class="status-actions">
-                  <Button 
-                    label="Find Nearby Meetings" 
-                    icon="pi pi-search" 
-                    class="p-button-raised p-button-info p-button-rounded mr-2"
+                  <Button
+                    label="Find Nearby Meetings"
+                    icon="pi pi-search"
+                    class="p-button-raised p-button-info p-button-lg mr-2"
                     @click="findMeetings"
                   />
-                  <Button 
-                    label="Create Meeting" 
-                    icon="pi pi-plus" 
-                    class="p-button-raised p-button-success p-button-rounded"
+                  <Button
+                    label="Create Meeting"
+                    icon="pi pi-plus"
+                    class="p-button-raised p-button-success p-button-lg"
                     @click="createMeeting"
                   />
                 </div>
@@ -99,21 +101,8 @@
             </div>
           </template>
         </Card>
-        
-        <Card class="dashboard-card mt-4" v-if="userLocation">
-          <template #title>
-            <div class="card-title">
-              <i class="pi pi-map-marker mr-2"></i>
-              Your Location
-            </div>
-          </template>
-          <template #content>
-            <div id="location-map" class="location-map"></div>
-          </template>
-        </Card>
-      </div>
-      
-      <div class="dashboard-col">
+
+        <div class="dashboard-col">
         <Card class="dashboard-card">
           <template #title>
             <div class="card-title">
@@ -131,17 +120,18 @@
                     {{ formatTime(meeting.t1) }} - {{ formatTime(meeting.t2) }}
                   </div>
                   <div class="meeting-item-actions">
-                    <Button 
-                      icon="pi pi-info-circle" 
-                      class="p-button-rounded p-button-text p-button-sm"
+                    <Button
+                      label="View"
+                      icon="pi pi-info-circle"
+                      class="p-button-outlined p-button-info"
                       @click="viewMeeting(meeting.meeting_id)"
-                      v-tooltip="'View Details'"
+                      style="margin-right: 0.5rem;"
                     />
-                    <Button 
-                      icon="pi pi-sign-in" 
-                      class="p-button-rounded p-button-text p-button-success p-button-sm"
+                    <Button
+                      label="Join"
+                      icon="pi pi-sign-in"
+                      class="p-button-success"
                       @click="joinMeeting(meeting.meeting_id)"
-                      v-tooltip="'Join Meeting'"
                       :disabled="isCurrentlyJoined(meeting.meeting_id)"
                     />
                   </div>
@@ -154,6 +144,7 @@
             </div>
           </template>
         </Card>
+      </div>
       </div>
     </div>
   </div>
@@ -205,7 +196,7 @@ export default {
           detail: 'You have successfully joined the meeting',
           life: 3000
         })
-        
+
         // Fetch participants
         this.fetchParticipants()
       } catch (error) {
@@ -250,12 +241,12 @@ export default {
     async fetchData() {
       try {
         await this.$store.dispatch('getActiveMeetings')
-        
+
         // Get user location if not already set
         if (!this.userLocation) {
           this.getUserLocation()
         }
-        
+
         // If the user is in a meeting, fetch participants
         if (this.joinedMeeting) {
           this.fetchParticipants()
@@ -282,11 +273,11 @@ export default {
               lng: position.coords.longitude
             }
             this.$store.dispatch('setUserLocation', location)
-            
+
             // Once we have location, fetch nearby meetings
-            this.$store.dispatch('getNearbyMeetings', { 
-              x: location.lat, 
-              y: location.lng 
+            this.$store.dispatch('getNearbyMeetings', {
+              x: location.lat,
+              y: location.lng
             })
           },
           error => {
@@ -308,14 +299,14 @@ export default {
           const mapElement = document.getElementById('location-map')
           if (mapElement) {
             this.map = L.map('location-map').setView(
-              [this.userLocation.lat, this.userLocation.lng], 
+              [this.userLocation.lat, this.userLocation.lng],
               15
             )
-            
+
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
               attribution: '© OpenStreetMap contributors'
             }).addTo(this.map)
-            
+
             this.marker = L.marker([this.userLocation.lat, this.userLocation.lng])
               .addTo(this.map)
               .bindPopup('Your Location')
@@ -510,8 +501,13 @@ export default {
 }
 
 .meeting-item {
-  padding: 1rem;
+  padding: 1.5rem;
   border-bottom: 1px solid var(--surface-border);
+  transition: background-color 0.2s;
+}
+
+.meeting-item:hover {
+  background-color: var(--surface-hover);
 }
 
 .meeting-item:last-child {
@@ -524,20 +520,25 @@ export default {
 }
 
 .meeting-item-title {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+  color: var(--primary-color);
 }
 
 .meeting-item-time {
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--text-color-secondary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
 }
 
 .meeting-item-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+  margin-top: 1rem;
 }
 
 .no-meetings {
@@ -563,7 +564,7 @@ export default {
   .dashboard-content {
     flex-direction: column;
   }
-  
+
   .dashboard-col {
     width: 100%;
   }
