@@ -1,0 +1,414 @@
+import { createStore } from 'vuex'
+import axios from 'axios'
+
+// Base URL for API
+const apiClient = axios.create({
+  baseURL: process.env.VUE_APP_API_URL || 'http://127.0.0.1:8000/api',
+  withCredentials: false,
+  headers: {
+    Accept: 'application/json',
+    'Content-Type': 'application/json'
+  }
+})
+
+export default createStore({
+  state: {
+    user: null,
+    isAuthenticated: false,
+    nearbyMeetings: [],
+    activeMeetings: [],
+    currentMeeting: null,
+    joinedMeeting: null,
+    meetingParticipants: [],
+    chatMessages: [],
+    userMessages: [],
+    userLocation: null,
+    loading: false,
+    error: null
+  },
+  getters: {
+    isAuthenticated: state => state.isAuthenticated,
+    currentUser: state => state.user,
+    nearbyMeetings: state => state.nearbyMeetings,
+    activeMeetings: state => state.activeMeetings,
+    currentMeeting: state => state.currentMeeting,
+    joinedMeeting: state => state.joinedMeeting,
+    meetingParticipants: state => state.meetingParticipants,
+    chatMessages: state => state.chatMessages,
+    userMessages: state => state.userMessages,
+    userLocation: state => state.userLocation,
+    isLoading: state => state.loading,
+    hasError: state => state.error !== null,
+    errorMessage: state => state.error
+  },
+  mutations: {
+    SET_USER(state, user) {
+      state.user = user
+      state.isAuthenticated = user !== null
+    },
+    SET_NEARBY_MEETINGS(state, meetings) {
+      state.nearbyMeetings = meetings
+    },
+    SET_ACTIVE_MEETINGS(state, meetings) {
+      state.activeMeetings = meetings
+    },
+    SET_CURRENT_MEETING(state, meeting) {
+      state.currentMeeting = meeting
+    },
+    SET_JOINED_MEETING(state, meeting) {
+      state.joinedMeeting = meeting
+    },
+    SET_MEETING_PARTICIPANTS(state, participants) {
+      state.meetingParticipants = participants
+    },
+    SET_CHAT_MESSAGES(state, messages) {
+      state.chatMessages = messages
+    },
+    SET_USER_MESSAGES(state, messages) {
+      state.userMessages = messages
+    },
+    SET_USER_LOCATION(state, location) {
+      state.userLocation = location
+    },
+    SET_LOADING(state, isLoading) {
+      state.loading = isLoading
+    },
+    SET_ERROR(state, error) {
+      state.error = error
+    },
+    CLEAR_ERROR(state) {
+      state.error = null
+    }
+  },
+  actions: {
+    // User authentication
+    login({ commit }, user) {
+      // In a real app, this would validate with backend
+      commit('SET_USER', user)
+      localStorage.setItem('user', JSON.stringify(user))
+    },
+    logout({ commit }) {
+      commit('SET_USER', null)
+      commit('SET_JOINED_MEETING', null)
+      localStorage.removeItem('user')
+    },
+    checkAuth({ commit }) {
+      const user = localStorage.getItem('user')
+      if (user) {
+        commit('SET_USER', JSON.parse(user))
+      }
+    },
+    // User management
+    async createUser({ commit }, userData) {
+      try {
+        commit('SET_LOADING', true)
+        const response = await apiClient.post('/users', userData)
+        if (response.data.success) {
+          // After creating user, login with it
+          commit('SET_USER', { 
+            email: userData.email, 
+            name: userData.name,
+            age: userData.age,
+            gender: userData.gender
+          })
+          localStorage.setItem('user', JSON.stringify({ 
+            email: userData.email, 
+            name: userData.name,
+            age: userData.age,
+            gender: userData.gender
+          }))
+        }
+        commit('SET_LOADING', false)
+        return response.data
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error creating user')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    async getUser({ commit }, email) {
+      try {
+        commit('SET_LOADING', true)
+        const response = await apiClient.get(`/users/${email}`)
+        commit('SET_LOADING', false)
+        return response.data
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error getting user details')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    // Meeting management
+    async createMeeting({ commit, dispatch }, meetingData) {
+      try {
+        commit('SET_LOADING', true)
+        console.log('Creating meeting with data:', meetingData)
+        const response = await apiClient.post('/meetings', meetingData)
+        console.log('Meeting created, response:', response.data)
+        
+        // Force immediate refresh of active meetings after creation
+        await dispatch('getActiveMeetings', { forceRefresh: true })
+        
+        commit('SET_LOADING', false)
+        return response.data
+      } catch (error) {
+        console.error('Error creating meeting:', error.response || error)
+        commit('SET_ERROR', error.response?.data?.error || 'Error creating meeting')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    async getMeeting({ commit }, meetingId) {
+      try {
+        commit('SET_LOADING', true)
+        const response = await apiClient.get(`/meetings/${meetingId}`)
+        commit('SET_CURRENT_MEETING', response.data)
+        commit('SET_LOADING', false)
+        return response.data
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error getting meeting details')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    async getActiveMeetings({ commit }, { forceRefresh = false } = {}) {
+      try {
+        commit('SET_LOADING', true)
+        
+        console.log('Getting active meetings...')
+        
+        // Normal API flow
+        const response = await apiClient.get('/meetings/active')
+        console.log('Active meetings response:', response.data)
+        
+        // Check if meetings array exists
+        if (!response.data.meetings) {
+          console.log('No meetings found in response')
+          commit('SET_ACTIVE_MEETINGS', [])
+          commit('SET_LOADING', false)
+          return []
+        }
+        
+        console.log('Found meeting IDs:', response.data.meetings)
+        
+        // Fetch details for each meeting
+        const meetings = []
+        const meetingPromises = response.data.meetings.map(meetingId => 
+          apiClient.get(`/meetings/${meetingId}`)
+            .then(meetingResponse => {
+              console.log('Meeting detail received:', meetingResponse.data)
+              meetings.push(meetingResponse.data)
+            })
+            .catch(err => {
+              console.error(`Error fetching meeting ${meetingId}:`, err)
+              // Continue with other meetings if one fails
+            })
+        )
+        
+        await Promise.all(meetingPromises)
+        
+        console.log('All meetings loaded:', meetings)
+        commit('SET_ACTIVE_MEETINGS', meetings)
+        commit('SET_LOADING', false)
+        return meetings
+      } catch (error) {
+        console.error('Error in getActiveMeetings:', error)
+        commit('SET_ERROR', error.response?.data?.detail || error.message || 'Error getting active meetings')
+        commit('SET_ACTIVE_MEETINGS', [])
+        commit('SET_LOADING', false)
+        return [] // Return empty array instead of throwing error
+      }
+    },
+    async getNearbyMeetings({ commit, state }, { x, y }) {
+      try {
+        if (!state.user) {
+          commit('SET_NEARBY_MEETINGS', [])
+          return []
+        }
+        
+        commit('SET_LOADING', true)
+        const response = await apiClient.get('/meetings/nearby', {
+          params: {
+            email: state.user.email,
+            x,
+            y
+          }
+        })
+        
+        // Check if meetings array exists
+        if (!response.data.meetings) {
+          commit('SET_NEARBY_MEETINGS', [])
+          commit('SET_LOADING', false)
+          return []
+        }
+        
+        // Fetch details for each meeting
+        const meetings = []
+        for (const meetingId of response.data.meetings) {
+          try {
+            const meetingResponse = await apiClient.get(`/meetings/${meetingId}`)
+            meetings.push(meetingResponse.data)
+          } catch (err) {
+            console.error(`Error fetching meeting ${meetingId}:`, err)
+            // Continue with other meetings if one fails
+          }
+        }
+        
+        commit('SET_NEARBY_MEETINGS', meetings)
+        commit('SET_LOADING', false)
+        return meetings
+      } catch (error) {
+        console.error('Error in getNearbyMeetings:', error)
+        commit('SET_ERROR', error.response?.data?.detail || error.message || 'Error getting nearby meetings')
+        commit('SET_NEARBY_MEETINGS', [])
+        commit('SET_LOADING', false)
+        return [] // Return empty array instead of throwing error
+      }
+    },
+    // Participation
+    async joinMeeting({ commit, state }, meetingId) {
+      try {
+        if (!state.user) {
+          throw new Error('User not authenticated')
+        }
+        
+        commit('SET_LOADING', true)
+        const response = await apiClient.post(`/meetings/${meetingId}/join`, {
+          email: state.user.email
+        })
+        
+        if (response.data.success) {
+          // Get meeting details and set as joined meeting
+          const meetingResponse = await apiClient.get(`/meetings/${meetingId}`)
+          commit('SET_JOINED_MEETING', meetingResponse.data)
+        }
+        
+        commit('SET_LOADING', false)
+        return response.data
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error joining meeting')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    async leaveMeeting({ commit, state }, meetingId) {
+      try {
+        if (!state.user) {
+          throw new Error('User not authenticated')
+        }
+        
+        commit('SET_LOADING', true)
+        const response = await apiClient.post(`/meetings/${meetingId}/leave`, {
+          email: state.user.email
+        })
+        
+        if (response.data.success) {
+          commit('SET_JOINED_MEETING', null)
+        }
+        
+        commit('SET_LOADING', false)
+        return response.data
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error leaving meeting')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    async getMeetingParticipants({ commit }, meetingId) {
+      try {
+        commit('SET_LOADING', true)
+        const response = await apiClient.get(`/meetings/${meetingId}/participants`)
+        commit('SET_MEETING_PARTICIPANTS', response.data.participants)
+        commit('SET_LOADING', false)
+        return response.data.participants
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error getting meeting participants')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    async endMeeting({ commit }, meetingId) {
+      try {
+        commit('SET_LOADING', true)
+        const response = await apiClient.post(`/meetings/${meetingId}/end`)
+        
+        if (response.data.success) {
+          commit('SET_JOINED_MEETING', null)
+        }
+        
+        commit('SET_LOADING', false)
+        return response.data
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error ending meeting')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    // Chat functionality
+    async postMessage({ commit, state }, { text, meetingId }) {
+      try {
+        if (!state.user) {
+          throw new Error('User not authenticated')
+        }
+        
+        commit('SET_LOADING', true)
+        const response = await apiClient.post('/chat/post', {
+          email: state.user.email,
+          text,
+          meeting_id: meetingId
+        })
+        
+        commit('SET_LOADING', false)
+        return response.data
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error posting message')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    async getMeetingMessages({ commit }, meetingId) {
+      try {
+        commit('SET_LOADING', true)
+        const response = await apiClient.get(`/meetings/${meetingId}/messages`)
+        commit('SET_CHAT_MESSAGES', response.data.messages)
+        commit('SET_LOADING', false)
+        return response.data.messages
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error getting chat messages')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    async getUserMessages({ commit, state }, meetingId) {
+      try {
+        if (!state.user) {
+          throw new Error('User not authenticated')
+        }
+        
+        commit('SET_LOADING', true)
+        const url = meetingId 
+          ? `/users/${state.user.email}/messages?meeting_id=${meetingId}`
+          : `/users/${state.user.email}/messages`
+          
+        const response = await apiClient.get(url)
+        commit('SET_USER_MESSAGES', response.data.messages)
+        commit('SET_LOADING', false)
+        return response.data.messages
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.error || 'Error getting user messages')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+    // Location
+    setUserLocation({ commit }, location) {
+      commit('SET_USER_LOCATION', location)
+    },
+    // Error handling
+    clearError({ commit }) {
+      commit('CLEAR_ERROR')
+    }
+  },
+  modules: {
+  }
+})

@@ -1,0 +1,210 @@
+/**
+ * Main Styles for StepIn Application
+ */
+
+// Variables
+$primary-color: var(--primary-color);
+$secondary-color: var(--secondary-color);
+$text-color: var(--text-color);
+$text-color-secondary: var(--text-color-secondary);
+$surface-ground: var(--surface-ground);
+$surface-card: var(--surface-card);
+$surface-border: var(--surface-border);
+$surface-hover: var(--surface-hover);
+
+// Global styles
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  background-color: $surface-ground;
+  color: $text-color;
+  min-height: 100vh;
+}
+
+// Layout
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+  padding: 20px;
+  position: relative;
+}
+
+// Header
+.logo-container {
+  display: flex;
+  align-items: center;
+}
+
+.app-title {
+  margin-left: 10px;
+  font-size: 1.5rem;
+  color: $primary-color;
+}
+
+// Footer
+footer {
+  padding: 15px 20px;
+  background-color: $surface-card;
+  border-top: 1px solid $surface-border;
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+// User Profile
+.user-profile {
+  display: flex;
+  align-items: center;
+}
+
+.user-name {
+  margin-right: 10px;
+  font-weight: 600;
+}
+
+// Loading
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+// Meeting Status
+.meeting-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+// Common Components
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  font-size: 1.2rem;
+}
+
+// Maps
+.map-container {
+  height: 400px;
+  border-radius: 6px;
+  z-index: 0;
+}
+
+// Meeting Cards
+.meeting-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.meeting-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.meeting-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.meeting-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+// Chat styles
+.chat-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.chat-card {
+  height: calc(100vh - 180px);
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  background-color: $surface-ground;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message {
+  max-width: 75%;
+  padding: 10px;
+  border-radius: 10px;
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.message-own {
+  align-self: flex-end;
+  background-color: $primary-color;
+  color: #ffffff;
+}
+
+.message-other {
+  align-self: flex-start;
+  background-color: $surface-card;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .map-details {
+    flex-direction: column;
+  }
+  
+  .meeting-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .chat-card {
+    height: calc(100vh - 150px);
+  }
+  
+  .message {
+    max-width: 90%;
+  }
+}

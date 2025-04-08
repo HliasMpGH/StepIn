@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StepIn API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #0066cc;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #333;
+            margin-top: 30px;
+        }
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: monospace;
+        }
+        .endpoints {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>StepIn API</h1>
+    <p>Welcome to the StepIn API for physical meeting management!</p>
+    
+    <h2>API Documentation</h2>
+    <p>The full API documentation is available at the following URLs:</p>
+    <div class="endpoints">
+        <p><strong>Swagger UI:</strong> <a href="/docs">/docs</a></p>
+        <p><strong>ReDoc:</strong> <a href="/redoc">/redoc</a></p>
+    </div>
+    
+    <h2>API Endpoints</h2>
+    <div class="endpoints">
+        <h3>Users</h3>
+        <p>Create a new user: <code>POST /api/users</code></p>
+        <p>Get user details: <code>GET /api/users/{email}</code></p>
+        
+        <h3>Meetings</h3>
+        <p>Create a new meeting: <code>POST /api/meetings</code></p>
+        <p>Get meeting details: <code>GET /api/meetings/{meeting_id}</code></p>
+        <p>Get nearby meetings: <code>POST /api/meetings/nearby</code></p>
+        <p>Join a meeting: <code>POST /api/meetings/{meeting_id}/join</code></p>
+        <p>Leave a meeting: <code>POST /api/meetings/{meeting_id}/leave</code></p>
+        <p>Get meeting participants: <code>GET /api/meetings/{meeting_id}/participants</code></p>
+        <p>End a meeting: <code>POST /api/meetings/{meeting_id}/end</code></p>
+        
+        <h3>Chat</h3>
+        <p>Send a chat message: <code>POST /api/chat/{meeting_id}</code></p>
+        <p>Get chat messages: <code>GET /api/chat/{meeting_id}</code></p>
+    </div>
+    
+    <h2>Example Request</h2>
+    <p>Creating a new user:</p>
+    <pre><code>POST /api/users
+Content-Type: application/json
+
+{
+    "email": "user@example.com",
+    "name": "John Doe",
+    "age": 30,
+    "gender": "male"
+}</code></pre>
+
+    <h2>Example Response</h2>
+    <pre><code>{
+    "success": true
+}</code></pre>
+
+    <p>For any issues or questions about the API, please contact the administrator.</p>
+</body>
+</html>
