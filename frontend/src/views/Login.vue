@@ -70,8 +70,6 @@ export default {
       }
 
       try {
-        // In a real app, we would validate with backend here
-        // We're simulating by checking if user exists in the system
         const response = await this.$store.dispatch('getUser', this.email)
 
         if (response) {
