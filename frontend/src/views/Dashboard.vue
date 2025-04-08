@@ -114,26 +114,28 @@
             <div v-if="activeMeetings.length > 0" class="meetings-list">
               <div v-for="meeting in activeMeetings" :key="meeting.meeting_id" class="meeting-item">
                 <div class="meeting-item-content">
-                  <div class="meeting-item-title">{{ meeting.title }}</div>
+                  <div class="meeting-item-title">
+                    <span>{{ meeting.title }}</span>
+                    <div class="meeting-item-actions">
+                      <Button
+                        label="View"
+                        icon="pi pi-info-circle"
+                        class="p-button-outlined p-button-info"
+                        @click="viewMeeting(meeting.meeting_id)"
+                        style="margin-right: 0.5rem;"
+                      />
+                      <Button
+                        label="Join"
+                        icon="pi pi-sign-in"
+                        class="p-button-success"
+                        @click="joinMeeting(meeting.meeting_id)"
+                        :disabled="isCurrentlyJoined(meeting.meeting_id)"
+                      />
+                    </div>
+                  </div>
                   <div class="meeting-item-time">
                     <i class="pi pi-clock mr-1"></i>
                     {{ formatTime(meeting.t1) }} - {{ formatTime(meeting.t2) }}
-                  </div>
-                  <div class="meeting-item-actions">
-                    <Button
-                      label="View"
-                      icon="pi pi-info-circle"
-                      class="p-button-outlined p-button-info"
-                      @click="viewMeeting(meeting.meeting_id)"
-                      style="margin-right: 0.5rem;"
-                    />
-                    <Button
-                      label="Join"
-                      icon="pi pi-sign-in"
-                      class="p-button-success"
-                      @click="joinMeeting(meeting.meeting_id)"
-                      :disabled="isCurrentlyJoined(meeting.meeting_id)"
-                    />
                   </div>
                 </div>
               </div>
@@ -524,6 +526,9 @@ export default {
   font-size: 1.2rem;
   margin-bottom: 0.75rem;
   color: var(--primary-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .meeting-item-time {
@@ -536,9 +541,7 @@ export default {
 
 .meeting-item-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 0.5rem;
-  margin-top: 1rem;
 }
 
 .no-meetings {

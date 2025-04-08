@@ -36,7 +36,8 @@
       </div>
 
       <div class="meeting-content">
-        <div class="left-panel">
+        <!-- Two equal-sized cards at the top -->
+        <div class="cards-container">
           <Card class="meeting-detail-card">
             <template #title>
               <h2>{{ meeting.title }}</h2>
@@ -78,9 +79,7 @@
               </div>
             </template>
           </Card>
-        </div>
 
-        <div class="right-panel">
           <Card class="details-card">
             <template #title>
               <h3>Meeting Details</h3>
@@ -99,13 +98,13 @@
               </div>
 
               <div class="detail-item">
-                <h4>Location</h4>
+                <h4>Created By</h4>
                 <div class="detail-content">
-                  <i class="pi pi-map-marker mr-2"></i>
-                  <span>Latitude: {{ meeting.lat.toFixed(6) }}, Longitude: {{ meeting.long.toFixed(6) }}</span>
+                  <i class="pi pi-user mr-2"></i>
+                  <span>{{ meeting.email }}</span>
                 </div>
-                <div ref="mapContainer" class="map-container"></div>
               </div>
+
               <div class="detail-item">
                 <h4>Participants ({{ participants.length }})</h4>
                 <div v-if="loadingParticipants" class="loading-participants">
@@ -133,6 +132,22 @@
             </template>
           </Card>
         </div>
+        
+        <!-- Full-width location card -->
+        <Card class="location-card">
+          <template #title>
+            <h3>Meeting Location</h3>
+          </template>
+          <template #content>
+            <div class="location-details">
+              <div class="detail-content">
+                <i class="pi pi-map-marker mr-2"></i>
+                <span>Latitude: {{ meeting.lat.toFixed(6) }}, Longitude: {{ meeting.long.toFixed(6) }}</span>
+              </div>
+              <div ref="mapContainer" class="map-container-full"></div>
+            </div>
+          </template>
+        </Card>
       </div>
     </div>
   </div>
@@ -370,22 +385,28 @@ export default {
     const initMap = () => {
       if (!mapContainer.value || !meeting.value) return;
 
-      // Initialize map centered on meeting location
-      mapInstance.value = L.map(mapContainer.value).setView(
-        [meeting.value.lat, meeting.value.long],
-        15
-      );
+      // Wait for the DOM to be ready and rendered
+      setTimeout(() => {
+        // Initialize map centered on meeting location
+        mapInstance.value = L.map(mapContainer.value).setView(
+          [meeting.value.lat, meeting.value.long],
+          15
+        );
 
-      // Add OpenStreetMap tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(mapInstance.value);
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mapInstance.value);
 
-      // Add marker for meeting location
-      L.marker([meeting.value.lat, meeting.value.long])
-        .addTo(mapInstance.value)
-        .bindPopup(meeting.value.title)
-        .openPopup();
+        // Add marker for meeting location
+        L.marker([meeting.value.lat, meeting.value.long])
+          .addTo(mapInstance.value)
+          .bindPopup(meeting.value.title)
+          .openPopup();
+          
+        // Invalidate size after rendering to ensure correct display
+        mapInstance.value.invalidateSize();
+      }, 300);
     };
 
     const startPolling = () => {
@@ -503,29 +524,37 @@ export default {
 }
 
 .meeting-content {
-  display: grid;
-  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 2rem;
   margin-top: 2rem;
 }
 
-.left-panel, .right-panel {
-  width: 100%;
+.cards-container {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+  gap: 2rem;
 }
 
-.meeting-detail-card, .details-card, .chat-card {
-  margin-bottom: 1.5rem;
+.meeting-detail-card, .details-card, .location-card, .chat-card {
+  margin-bottom: 0;
   height: auto;
   min-height: 300px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   border-radius: 12px;
   overflow: hidden;
-  transition: transform 0.3s, box-shadow 0.3s;
+  transition: none;
 }
 
-.meeting-detail-card:hover, .details-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+.location-card {
+  width: 100%;
+}
+
+.map-container-full {
+  height: 400px;
+  border-radius: 8px;
+  margin-top: 1rem;
+  width: 100%;
 }
 
 .meeting-description {
@@ -692,7 +721,7 @@ export default {
 }
 
 @media (max-width: 991px) {
-  .meeting-content {
+  .cards-container {
     grid-template-columns: 1fr;
   }
 }
@@ -704,6 +733,10 @@ export default {
 
   .meeting-actions {
     flex-direction: column;
+  }
+  
+  .map-container-full {
+    height: 300px;
   }
 }
 </style>
