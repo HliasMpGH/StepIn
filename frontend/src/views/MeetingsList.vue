@@ -2,10 +2,10 @@
   <div class="meetings-list-container">
     <div class="header">
       <h1>My Meetings</h1>
-      <Button 
-        label="Create Meeting" 
-        icon="pi pi-plus" 
-        class="p-button-rounded p-button-success" 
+      <Button
+        label="Create Meeting"
+        icon="pi pi-plus"
+        class="p-button-rounded p-button-success"
         @click="navigateToCreate"
       />
     </div>
@@ -19,10 +19,10 @@
           <div v-else-if="activeMeetings.length === 0" class="no-meetings">
             <i class="pi pi-calendar-times no-meetings-icon"></i>
             <p>No active meetings found</p>
-            <Button 
-              label="Find Nearby Meetings" 
-              icon="pi pi-search" 
-              class="p-button-rounded p-button-info" 
+            <Button
+              label="Find Nearby Meetings"
+              icon="pi pi-search"
+              class="p-button-rounded p-button-info"
               @click="navigateToFind"
             />
           </div>
@@ -56,16 +56,16 @@
                 </template>
                 <template #footer>
                   <div class="meeting-actions">
-                    <Button 
-                      label="View Details" 
-                      icon="pi pi-info-circle" 
-                      @click="viewMeeting(meeting.meeting_id)" 
+                    <Button
+                      label="View Details"
+                      icon="pi pi-info-circle"
+                      @click="viewMeeting(meeting.meeting_id)"
                       class="p-button p-button-info p-button-outlined"
                     />
-                    <Button 
-                      label="Join Meeting" 
-                      icon="pi pi-sign-in" 
-                      @click="joinMeeting(meeting.meeting_id)" 
+                    <Button
+                      label="Join Meeting"
+                      icon="pi pi-sign-in"
+                      @click="joinMeeting(meeting.meeting_id)"
                       class="p-button p-button-success"
                     />
                   </div>
@@ -74,7 +74,7 @@
             </div>
           </div>
         </TabPanel>
-        
+
         <TabPanel header="Upcoming Meetings">
           <div v-if="loading" class="loading-container">
             <ProgressSpinner />
@@ -82,10 +82,10 @@
           <div v-else-if="upcomingMeetings.length === 0" class="no-meetings">
             <i class="pi pi-calendar-plus no-meetings-icon"></i>
             <p>No upcoming meetings found</p>
-            <Button 
-              label="Create a Meeting" 
-              icon="pi pi-plus" 
-              class="p-button-rounded p-button-success" 
+            <Button
+              label="Create a Meeting"
+              icon="pi pi-plus"
+              class="p-button-rounded p-button-success"
               @click="navigateToCreate"
             />
           </div>
@@ -119,10 +119,10 @@
                 </template>
                 <template #footer>
                   <div class="meeting-actions">
-                    <Button 
-                      label="View Details" 
-                      icon="pi pi-info-circle" 
-                      @click="viewMeeting(meeting.meeting_id)" 
+                    <Button
+                      label="View Details"
+                      icon="pi pi-info-circle"
+                      @click="viewMeeting(meeting.meeting_id)"
                       class="p-button p-button-info"
                     />
                   </div>
@@ -157,20 +157,20 @@ export default {
     const loading = ref(false);
     const activeMeetings = ref([]);
     const upcomingMeetings = ref([]);
-    
+
     const isAuthenticated = computed(() => store.getters.isAuthenticated);
-    
+
     // Add a refresher that runs when the component is activated (comes back into view)
     const refreshOnActivate = ref(true);
-    
+
     onMounted(async () => {
       if (!isAuthenticated.value) {
         router.push('/login');
         return;
       }
-      
+
       await fetchMeetings();
-      
+
       // Listen for route changes - when returning to this page, refresh data
       router.beforeEach((to, from, next) => {
         if (to.path === '/meetings' && from.path === '/meetings/create') {
@@ -179,7 +179,7 @@ export default {
         next();
       });
     });
-    
+
     // Add an activate hook (runs when component becomes visible again)
     const onActivated = async () => {
       if (refreshOnActivate.value) {
@@ -188,7 +188,7 @@ export default {
         refreshOnActivate.value = false;
       }
     };
-    
+
     const fetchMeetings = async () => {
       loading.value = true;
       try {
@@ -206,40 +206,40 @@ export default {
             participants: "test@example.com"
           }
         ];
-        
+
         // Get meetings from API with forceRefresh flag
         const response = await store.dispatch('getActiveMeetings', { forceRefresh: true });
         console.log('Meetings response:', response);
-        
+
         // Separate active from upcoming meetings
         const now = new Date();
-        
+
         // If no meetings are returned or the array is empty
         if (!response || response.length === 0) {
           console.log('No meetings returned from API, using dummy data for development');
-          
+
           // Use dummy data for development to test UI
           activeMeetings.value = dummyData;
           upcomingMeetings.value = [];
-          
+
           // Try once more after a delay as the backend might still be processing
           setTimeout(async () => {
             try {
               console.log('Retrying meeting fetch after delay...');
               const retryResponse = await store.dispatch('getActiveMeetings', { forceRefresh: true });
-              
+
               if (retryResponse && retryResponse.length > 0) {
                 console.log('Retry succeeded, got meetings:', retryResponse);
-                
+
                 // Update with new data
                 activeMeetings.value = retryResponse;
-                
+
                 // Sort meetings between active and upcoming
                 upcomingMeetings.value = retryResponse.filter(meeting => {
                   const startTime = new Date(meeting.t1);
                   return startTime > now;
                 });
-                
+
                 console.log('Updated after retry - Active:', activeMeetings.value);
                 console.log('Updated after retry - Upcoming:', upcomingMeetings.value);
               }
@@ -247,32 +247,32 @@ export default {
               console.error('Error in retry fetch:', retryError);
             }
           }, 2000);
-          
+
         } else {
           // Process meetings if we have them - all meetings are active
           activeMeetings.value = response;
-          
+
           // Just in case, include dummy data if we have no real data
           if (activeMeetings.value.length === 0) {
             activeMeetings.value = dummyData;
           }
-          
+
           // Sort meetings to show most recent first
           activeMeetings.value.sort((a, b) => {
             return new Date(b.t1) - new Date(a.t1);
           });
-          
+
           upcomingMeetings.value = response.filter(meeting => {
             const startTime = new Date(meeting.t1);
             return startTime > now;
           });
-          
+
           console.log('Active meetings:', activeMeetings.value);
           console.log('Upcoming meetings:', upcomingMeetings.value);
         }
       } catch (error) {
         console.error('Error fetching meetings:', error);
-        
+
         // Use dummy data as fallback for UI testing
         activeMeetings.value = [
           {
@@ -286,7 +286,7 @@ export default {
             participants: "test@example.com"
           }
         ];
-        
+
         toast.add({
           severity: 'error',
           summary: 'Error',
@@ -297,7 +297,7 @@ export default {
         loading.value = false;
       }
     };
-    
+
     const joinMeeting = async (meetingId) => {
       try {
         const result = await store.dispatch('joinMeeting', meetingId);
@@ -319,24 +319,24 @@ export default {
         });
       }
     };
-    
+
     const viewMeeting = (meetingId) => {
       router.push(`/meetings/${meetingId}`);
     };
-    
+
     const navigateToCreate = () => {
       router.push('/meetings/create');
     };
-    
+
     const navigateToFind = () => {
       router.push('/meetings/find');
     };
-    
+
     const formatDate = (dateString) => {
       const date = new Date(dateString);
       return date.toLocaleString();
     };
-    
+
     return {
       loading,
       activeMeetings,
@@ -408,7 +408,16 @@ export default {
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
   background-color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
+
+
+.custom-card :deep(.p-card-content) {
+    flex-grow: 1;
+}
+
 
 .custom-card:hover {
   transform: translateY(-5px);
@@ -432,7 +441,6 @@ export default {
 }
 
 .meeting-info {
-  margin-bottom: 1rem;
   color: var(--text-color);
 }
 
@@ -467,13 +475,15 @@ export default {
   justify-content: flex-end;
   gap: 0.8rem;
   margin-top: 0.5rem;
+  padding: 1rem;
+  border-top: 1px solid var(--surface-border);
 }
 
 @media (max-width: 768px) {
   .meetings-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .header {
     flex-direction: column;
     gap: 1rem;
