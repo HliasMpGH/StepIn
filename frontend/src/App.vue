@@ -10,12 +10,20 @@
         </template>
         <template #end>
           <div class="user-menu">
+            <!-- Chat icon - always visible but colored/animated only when in a meeting -->
+            <div class="status-container" v-if="joinedMeeting">
+              <Badge value="Active Meeting" severity="success" />
+              <span class="meeting-name">{{ joinedMeeting.title }}</span>
+            </div>
             <Button 
-              v-if="joinedMeeting"
               icon="pi pi-comments" 
-              class="p-button-rounded p-button-text p-button-success chat-indicator" 
-              v-tooltip="'Go to active meeting chat'"
-              @click="$router.push('/chat')"
+              :class="[
+                'p-button-rounded p-button-text',
+                joinedMeeting ? 'p-button-success chat-indicator' : 'p-button-secondary'
+              ]" 
+              v-tooltip="joinedMeeting ? 'Go to active meeting chat' : 'No active meeting'"
+              @click="joinedMeeting ? $router.push('/chat') : null"
+              :disabled="!joinedMeeting"
             />
             
             <div 
@@ -48,11 +56,6 @@
     
     <footer v-if="isAuthenticated">
       <div class="footer-content">
-        <div v-if="joinedMeeting" class="meeting-status">
-          <Badge value="Active Meeting" severity="success" />
-          <span class="ml-2">{{ joinedMeeting.title }}</span>
-          <Button label="Open Chat" class="p-button-sm" icon="pi pi-comments" @click="openChat" />
-        </div>
         <div class="copyright">
           © {{ new Date().getFullYear() }} StepIn - Physical Meeting Platform
         </div>
@@ -242,6 +245,25 @@ footer {
   gap: 15px;
 }
 
+.status-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.5rem;
+  border-radius: 30px;
+  background-color: rgba(76, 175, 80, 0.1);
+  border: 1px solid var(--surface-border);
+  margin-right: 5px;
+}
+
+.meeting-name {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+}
+
 .profile-container {
   display: flex;
   align-items: center;
@@ -310,6 +332,14 @@ footer {
 @media (max-width: 768px) {
   .user-name {
     display: none;
+  }
+  
+  .meeting-name {
+    display: none;
+  }
+  
+  .status-container {
+    padding: 0.3rem;
   }
   
   main {

@@ -60,21 +60,21 @@
                   label="Join Meeting" 
                   icon="pi pi-sign-in" 
                   @click="joinMeeting" 
-                  class="p-button-success p-button-raised"
+                  class="p-button-success p-button-raised p-button-lg"
                 />
                 <Button 
                   v-if="hasJoined" 
                   label="Go to Chat" 
                   icon="pi pi-comments" 
                   @click="$router.push('/chat')" 
-                  class="p-button-info p-button-raised"
+                  class="p-button-info p-button-raised p-button-lg"
                 />
                 <Button 
                   v-if="hasJoined" 
                   label="Leave Meeting" 
                   icon="pi pi-sign-out" 
                   @click="leaveMeeting" 
-                  class="p-button-danger p-button-outlined"
+                  class="p-button-danger p-button-outlined p-button-lg"
                 />
               </div>
             </template>
@@ -87,12 +87,28 @@
               <h3>Meeting Details</h3>
             </template>
             <template #content>
-              <div class="location-section">
+              <div class="detail-item">
+                <h4>Date & Time</h4>
+                <div class="detail-content">
+                  <i class="pi pi-calendar mr-2"></i> 
+                  <span>{{ formatDate(meeting.t1) }}</span>
+                </div>
+                <div class="detail-content">
+                  <i class="pi pi-clock mr-2"></i> 
+                  <span>{{ formatTime(meeting.t1) }} - {{ formatTime(meeting.t2) }}</span>
+                </div>
+              </div>
+              
+              <div class="detail-item">
                 <h4>Location</h4>
+                <div class="detail-content">
+                  <i class="pi pi-map-marker mr-2"></i>
+                  <span>Latitude: {{ meeting.lat.toFixed(6) }}, Longitude: {{ meeting.long.toFixed(6) }}</span>
+                </div>
                 <div ref="mapContainer" class="map-container"></div>
               </div>
               
-              <div class="participants-section">
+              <div class="detail-item">
                 <h4>Participants ({{ participants.length }})</h4>
                 <div v-if="loadingParticipants" class="loading-participants">
                   <ProgressSpinner style="width: 30px; height: 30px" />
@@ -155,13 +171,13 @@
                     v-model="newMessage" 
                     placeholder="Type a message..." 
                     class="p-inputtext-lg"
-                    @keyup.enter="sendMessage"
+                    @keydown.enter="sendMessage"
                   />
                   <Button 
                     icon="pi pi-send" 
                     @click="sendMessage" 
-                    :disabled="!newMessage.trim()"
-                    class="p-button-rounded"
+                    :disabled="!newMessage.trim()" 
+                    class="p-button-primary p-button-lg"
                   />
                 </div>
               </div>
@@ -174,11 +190,12 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 export default {
   name: 'MeetingDetails',
@@ -188,46 +205,48 @@ export default {
     const router = useRouter();
     const toast = useToast();
     
+    const meetingId = ref(Number(route.params.id));
     const loading = ref(true);
-    const loadingParticipants = ref(false);
-    const loadingMessages = ref(false);
     const meeting = ref(null);
+    const loadingParticipants = ref(false);
     const participants = ref([]);
     const joinedParticipants = ref([]);
+    const loadingMessages = ref(false);
     const messages = ref([]);
     const newMessage = ref('');
-    const mapInstance = ref(null);
     const mapContainer = ref(null);
+    const mapInstance = ref(null);
     const messagesContainer = ref(null);
-    
-    // Chat polling
     const pollingInterval = ref(null);
     
-    const meetingId = computed(() => Number(route.params.id));
     const currentUser = computed(() => store.getters.currentUser);
-    const isActive = computed(() => {
-      if (!meeting.value) return false;
-      const now = new Date();
-      const startTime = new Date(meeting.value.t1);
-      const endTime = new Date(meeting.value.t2);
-      return startTime <= now && endTime >= now;
-    });
+    const joinedMeeting = computed(() => store.getters.joinedMeeting);
     
     const hasJoined = computed(() => {
-      const joinedMeeting = store.getters.joinedMeeting;
-      return joinedMeeting && joinedMeeting.meeting_id === meetingId.value;
+      return joinedMeeting.value && 
+             joinedMeeting.value.meeting_id === meetingId.value;
+    });
+    
+    const isActive = computed(() => {
+      if (!meeting.value) return false;
+      
+      const now = new Date();
+      const start = new Date(meeting.value.t1);
+      const end = new Date(meeting.value.t2);
+      
+      return start <= now && end >= now;
     });
     
     const meetingStatus = computed(() => {
-      if (!meeting.value) return { label: 'Unknown', severity: 'secondary', icon: 'pi pi-question-circle' };
+      if (!meeting.value) return { label: 'Unknown', severity: 'info', icon: 'pi pi-question-circle' };
       
       const now = new Date();
-      const startTime = new Date(meeting.value.t1);
-      const endTime = new Date(meeting.value.t2);
+      const start = new Date(meeting.value.t1);
+      const end = new Date(meeting.value.t2);
       
-      if (startTime > now) {
-        return { label: 'Upcoming', severity: 'info', icon: 'pi pi-calendar-plus' };
-      } else if (startTime <= now && endTime >= now) {
+      if (now < start) {
+        return { label: 'Upcoming', severity: 'info', icon: 'pi pi-calendar' };
+      } else if (now >= start && now <= end) {
         return { label: 'Active', severity: 'success', icon: 'pi pi-check-circle' };
       } else {
         return { label: 'Ended', severity: 'danger', icon: 'pi pi-times-circle' };
@@ -237,27 +256,28 @@ export default {
     onMounted(async () => {
       try {
         await fetchMeeting();
+        
+        // If meeting details loaded successfully
         if (meeting.value) {
-          // Initialize map after meeting data is loaded
-          nextTick(() => {
-            initMap();
-          });
+          // Initialize map
+          initMap();
           
-          // Load participants
-          await fetchParticipants();
+          // Fetch participants and messages
+          await Promise.all([
+            fetchParticipants(),
+            fetchMessages()
+          ]);
           
-          // If joined, load messages and start polling
+          // If user has joined this meeting, start polling for updates
           if (hasJoined.value) {
-            await fetchMessages();
             startPolling();
           }
         }
       } catch (error) {
-        console.error('Error in onMounted:', error);
         toast.add({
           severity: 'error',
           summary: 'Error',
-          detail: 'Failed to load meeting details',
+          detail: error.message || 'Failed to load meeting details',
           life: 3000
         });
       } finally {
@@ -266,44 +286,44 @@ export default {
     });
     
     onBeforeUnmount(() => {
-      // Clean up map and polling
+      stopPolling();
+      
+      // Clean up map if initialized
       if (mapInstance.value) {
         mapInstance.value.remove();
+        mapInstance.value = null;
       }
-      stopPolling();
     });
     
-    // Watch for changes in hasJoined to start/stop polling
-    watch(hasJoined, (newValue) => {
-      if (newValue) {
-        fetchMessages();
-        startPolling();
-      } else {
-        stopPolling();
-      }
+    watch(messagesContainer, () => {
+      scrollToBottom();
+    });
+    
+    watch(messages, () => {
+      nextTick(() => {
+        scrollToBottom();
+      });
     });
     
     const fetchMeeting = async () => {
       try {
         meeting.value = await store.dispatch('getMeeting', meetingId.value);
       } catch (error) {
-        meeting.value = null;
         console.error('Error fetching meeting:', error);
+        meeting.value = null;
       }
     };
     
     const fetchParticipants = async () => {
+      if (!meeting.value) return;
+      
       loadingParticipants.value = true;
       try {
-        // Parse participants from meeting data
-        if (meeting.value && meeting.value.participants) {
-          participants.value = meeting.value.participants.split(',').map(p => p.trim());
-        }
+        // Get list of all participants from meeting data
+        participants.value = meeting.value.participants.split(',').map(email => email.trim());
         
-        // Get joined participants if meeting is active
-        if (isActive.value) {
-          joinedParticipants.value = await store.dispatch('getMeetingParticipants', meetingId.value);
-        }
+        // Get list of joined participants
+        joinedParticipants.value = await store.dispatch('getMeetingParticipants', meetingId.value);
       } catch (error) {
         console.error('Error fetching participants:', error);
       } finally {
@@ -312,17 +332,11 @@ export default {
     };
     
     const fetchMessages = async () => {
-      if (!hasJoined.value) return;
+      if (!meeting.value || !hasJoined.value) return;
       
       loadingMessages.value = true;
       try {
         messages.value = await store.dispatch('getMeetingMessages', meetingId.value);
-        // Scroll to bottom of messages
-        nextTick(() => {
-          if (messagesContainer.value) {
-            messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-          }
-        });
       } catch (error) {
         console.error('Error fetching messages:', error);
       } finally {
@@ -332,18 +346,19 @@ export default {
     
     const joinMeeting = async () => {
       try {
-        const result = await store.dispatch('joinMeeting', meetingId.value);
-        if (result.success) {
-          toast.add({
-            severity: 'success',
-            summary: 'Success',
-            detail: 'You have joined the meeting',
-            life: 3000
-          });
-          await fetchParticipants();
-          await fetchMessages();
-          startPolling();
-        }
+        await store.dispatch('joinMeeting', meetingId.value);
+        
+        toast.add({
+          severity: 'success',
+          summary: 'Joined',
+          detail: 'You have successfully joined the meeting',
+          life: 3000
+        });
+        
+        // Refresh participants and start polling for updates
+        await fetchParticipants();
+        await fetchMessages();
+        startPolling();
       } catch (error) {
         toast.add({
           severity: 'error',
@@ -356,17 +371,18 @@ export default {
     
     const leaveMeeting = async () => {
       try {
-        const result = await store.dispatch('leaveMeeting', meetingId.value);
-        if (result.success) {
-          toast.add({
-            severity: 'success',
-            summary: 'Success',
-            detail: 'You have left the meeting',
-            life: 3000
-          });
-          stopPolling();
-          await fetchParticipants();
-        }
+        await store.dispatch('leaveMeeting', meetingId.value);
+        
+        toast.add({
+          severity: 'info',
+          summary: 'Left',
+          detail: 'You have left the meeting',
+          life: 3000
+        });
+        
+        // Stop polling and refresh participants
+        stopPolling();
+        await fetchParticipants();
       } catch (error) {
         toast.add({
           severity: 'error',
@@ -437,9 +453,15 @@ export default {
       }
     };
     
+    const scrollToBottom = () => {
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
+    };
+    
     const formatDate = (dateString) => {
       const date = new Date(dateString);
-      return date.toLocaleString();
+      return date.toLocaleDateString();
     };
     
     const formatTime = (dateString) => {
@@ -448,11 +470,17 @@ export default {
     };
     
     const getInitials = (email) => {
-      return email.substring(0, 2).toUpperCase();
+      if (!email) return '??';
+      
+      // Get first letter of email local part
+      const localPart = email.split('@')[0];
+      return localPart.substring(0, 2).toUpperCase();
     };
     
     const getAvatarColor = (email) => {
-      // Generate a consistent color based on email string
+      if (!email) return 'var(--primary-color)';
+      
+      // Generate color based on email string
       let hash = 0;
       for (let i = 0; i < email.length; i++) {
         hash = email.charCodeAt(i) + ((hash << 5) - hash);
@@ -463,20 +491,21 @@ export default {
     };
     
     return {
-      loading,
-      loadingParticipants,
-      loadingMessages,
       meeting,
+      loading,
+      meetingId,
       participants,
       joinedParticipants,
+      loadingParticipants,
       messages,
+      loadingMessages,
       newMessage,
+      currentUser,
+      hasJoined,
+      isActive,
+      meetingStatus,
       mapContainer,
       messagesContainer,
-      currentUser,
-      isActive,
-      hasJoined,
-      meetingStatus,
       joinMeeting,
       leaveMeeting,
       sendMessage,
@@ -486,29 +515,14 @@ export default {
       getAvatarColor
     };
   }
-};
+}
 </script>
 
-<style>
-/* Import Leaflet CSS */
-@import 'leaflet/dist/leaflet.css';
-
+<style scoped>
 .meeting-details-container {
   max-width: 1200px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.header h1 {
-  margin: 0;
-  color: var(--primary-color);
+  margin: 0 auto;
+  padding: 2rem;
 }
 
 .loading-container,
@@ -518,72 +532,87 @@ export default {
   align-items: center;
   justify-content: center;
   min-height: 50vh;
-  text-align: center;
+  gap: 1rem;
 }
 
-.meeting-header {
+.header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-  background-color: var(--surface-card);
-  padding: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.meeting-header {
+  margin-bottom: 1.5rem;
+}
+
+.meeting-status {
+  margin-bottom: 0.5rem;
 }
 
 .meeting-content {
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: 1.5rem;
+  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+  gap: 2rem;
+  margin-top: 2rem;
 }
 
-.meeting-detail-card,
-.details-card,
-.chat-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.2s;
-  overflow: hidden;
+.left-panel, .right-panel {
+  width: 100%;
 }
 
-.meeting-detail-card:hover,
-.details-card:hover,
-.chat-card:hover {
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-}
-
-.left-panel,
-.right-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.meeting-time {
-  display: flex;
-  align-items: center;
-  color: var(--text-color-secondary);
-}
-
-.meeting-time i {
-  margin-right: 0.5rem;
+.meeting-detail-card, .details-card, .chat-card {
+  margin-bottom: 1.5rem;
+  height: auto;
+  min-height: 300px;
 }
 
 .meeting-description {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.meeting-description h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--primary-color);
 }
 
 .meeting-actions {
   display: flex;
   gap: 1rem;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
+}
+
+.detail-item {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--surface-200);
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.detail-item h4 {
+  color: var(--primary-color);
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+  margin-top: 0;
+}
+
+.detail-content {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
 }
 
 .map-container {
   height: 250px;
   border-radius: 8px;
-  margin-bottom: 1.5rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .participants-section {
@@ -664,6 +693,7 @@ export default {
   padding: 0.75rem;
   border-radius: 8px;
   background: var(--primary-color-lightest, #f0f7ff);
+  color: #333; /* Dark text color for better readability */
 }
 
 .own-message .message-content {

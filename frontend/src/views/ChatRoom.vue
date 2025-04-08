@@ -28,6 +28,12 @@
       <Card class="chat-card">
         <template #title>
           <div class="chat-header">
+            <Button 
+              icon="pi pi-arrow-left"
+              class="p-button-rounded p-button-text back-button"
+              @click="goBack"
+              v-tooltip="'Back to previous page'"
+            />
             <div class="meeting-info">
               <div class="meeting-title">{{ joinedMeeting.title }}</div>
               <div class="meeting-time">{{ formatTime(joinedMeeting.t1) }} - {{ formatTime(joinedMeeting.t2) }}</div>
@@ -66,6 +72,7 @@
                     <span class="message-time">{{ formatMessageTime(message.timestamp) }}</span>
                   </div>
                   <div class="message-content">{{ message.message }}</div>
+                  <div class="message-indicator" v-if="message.email === currentUser.email"></div>
                 </div>
               </div>
             </div>
@@ -316,6 +323,10 @@ export default {
       }
     };
     
+    const goBack = () => {
+      router.back();
+    };
+    
     const formatTime = (timeString) => {
       const date = new Date(timeString);
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -385,6 +396,7 @@ export default {
       sendMessage,
       confirmLeaveMeeting,
       leaveMeeting,
+      goBack,
       formatTime,
       formatMessageTime,
       getParticipantName,
@@ -488,23 +500,46 @@ export default {
   gap: 1rem;
 }
 
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.back-button {
+  margin-right: 10px;
+}
+
 .message {
   max-width: 75%;
   padding: 10px;
   border-radius: 10px;
   position: relative;
   margin-bottom: 10px;
+  color: var(--text-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .message-own {
   align-self: flex-end;
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--surface-section);
+  border: 1px solid var(--surface-border);
+  padding-right: 20px; /* Space for indicator */
 }
 
 .message-other {
   align-self: flex-start;
   background-color: var(--surface-card);
+}
+
+.message-indicator {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #2196F3; /* Blue */
 }
 
 .message-header {
@@ -515,7 +550,7 @@ export default {
 }
 
 .message-own .message-header {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-color-secondary);
 }
 
 .message-other .message-header {
