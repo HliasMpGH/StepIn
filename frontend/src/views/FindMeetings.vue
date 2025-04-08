@@ -175,100 +175,203 @@ export default {
       return degrees * Math.PI / 180
     },
     initMap() {
-      if (this.map) return
+      if (this.map) return;
+      
+      try {
+        // Get the map container element
+        const mapContainer = document.getElementById('map');
+        if (!mapContainer) {
+          console.error("Map container not found");
+          return;
+        }
+        
+        // Create map
+        this.map = L.map('map', {
+          // Add animation false to prevent potential issues
+          fadeAnimation: false,
+          zoomAnimation: false
+        }).setView([0, 0], 15);
 
-      // Create map
-      this.map = L.map('map').setView([0, 0], 15)
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(this.map);
 
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(this.map)
+        // Add click handler to update location
+        this.map.on('click', (e) => {
+          this.location.lat = e.latlng.lat;
+          this.location.lng = e.latlng.lng;
+          this.updateMarker();
+          this.reverseGeocode(e.latlng.lat, e.latlng.lng);
+        });
 
-      // Add click handler to update location
-      this.map.on('click', (e) => {
-        this.location.lat = e.latlng.lat
-        this.location.lng = e.latlng.lng
-        this.updateMarker()
-        this.reverseGeocode(e.latlng.lat, e.latlng.lng)
-      })
-
-      // Try to get user's current location
-      this.getUserLocation()
+        // Try to get user's current location
+        this.getUserLocation();
+      } catch (e) {
+        console.error("Error initializing map:", e);
+        this.$toast.add({
+          severity: 'error',
+          summary: 'Map Error',
+          detail: 'Could not initialize the map. Please try refreshing the page.',
+          life: 5000
+        });
+      }
     },
     getUserLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          position => {
-            this.location.lat = position.coords.latitude
-            this.location.lng = position.coords.longitude
+      if (!navigator.geolocation) {
+        this.$toast.add({
+          severity: 'warn',
+          summary: 'Geolocation Not Supported',
+          detail: 'Your browser does not support geolocation. Please click on the map to set your location.',
+          life: 5000
+        });
+        
+        // Set default location to Athens, Greece
+        if (this.map) {
+          try {
+            this.map.setView([37.9838, 23.7275], 13);
+            this.location.lat = 37.9838;
+            this.location.lng = 23.7275;
+            this.locationAddress = 'Athens, Greece';
+            this.updateMarker();
+          } catch (e) {
+            console.error("Error setting default location:", e);
+          }
+        }
+        return;
+      }
+      
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          try {
+            this.location.lat = position.coords.latitude;
+            this.location.lng = position.coords.longitude;
 
             // Center map on user's location
-            this.map.setView([this.location.lat, this.location.lng], 15)
-            this.updateMarker()
-            this.reverseGeocode(this.location.lat, this.location.lng)
+            if (this.map) {
+              this.map.setView([this.location.lat, this.location.lng], 15);
+              this.updateMarker();
+              this.reverseGeocode(this.location.lat, this.location.lng);
+            }
 
             // Auto-find nearby meetings
-            this.findNearbyMeetings()
-          },
-          error => {
-            console.error('Error getting location:', error)
+            this.findNearbyMeetings();
+          } catch (e) {
+            console.error('Error processing location:', e);
             this.$toast.add({
-              severity: 'warn',
-              summary: 'Location Access',
-              detail: 'Unable to access your location. Please click on the map to set your position.',
-              life: 5000
-            })
-
-            // Set default location to Athens, Greece
-            this.map.setView([37.9838, 23.7275], 13)
-            this.locationAddress = 'Athens, Greece'
+              severity: 'error',
+              summary: 'Map Error',
+              detail: 'Error processing your location. Please try again.',
+              life: 3000
+            });
           }
-        )
-      }
+        },
+        error => {
+          console.error('Error getting location:', error);
+          this.$toast.add({
+            severity: 'warn',
+            summary: 'Location Access',
+            detail: 'Unable to access your location. Please click on the map to set your position.',
+            life: 5000
+          });
+
+          // Set default location to Athens, Greece
+          if (this.map) {
+            try {
+              this.map.setView([37.9838, 23.7275], 13);
+              this.location.lat = 37.9838;
+              this.location.lng = 23.7275;
+              this.locationAddress = 'Athens, Greece';
+              this.updateMarker();
+            } catch (e) {
+              console.error("Error setting default location:", e);
+            }
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
     },
     updateMarker() {
+      // Ensure map is initialized
+      if (!this.map) return;
+      
       // Remove existing marker if any
       if (this.userMarker) {
-        this.map.removeLayer(this.userMarker)
+        try {
+          this.map.removeLayer(this.userMarker);
+        } catch (e) {
+          console.warn("Error removing marker:", e);
+          // Continue anyway
+        }
       }
 
-      // Add new marker
-      this.userMarker = L.marker([this.location.lat, this.location.lng], {
-        draggable: true
-      })
-        .addTo(this.map)
-        .bindPopup('Your Location')
-        .openPopup()
+      // Add new marker with try-catch for safety
+      try {
+        this.userMarker = L.marker([this.location.lat, this.location.lng], {
+          draggable: true
+        })
+          .addTo(this.map)
+          .bindPopup('Your Location')
+          .openPopup();
 
-      // Update location when marker is dragged
-      this.userMarker.on('dragend', (e) => {
-        const marker = e.target
-        const position = marker.getLatLng()
-        this.location.lat = position.lat
-        this.location.lng = position.lng
-        this.reverseGeocode(position.lat, position.lng)
-      })
+        // Update location when marker is dragged
+        this.userMarker.on('dragend', (e) => {
+          const marker = e.target;
+          const position = marker.getLatLng();
+          this.location.lat = position.lat;
+          this.location.lng = position.lng;
+          this.reverseGeocode(position.lat, position.lng);
+        });
+      } catch (e) {
+        console.error("Error updating marker:", e);
+        this.$toast.add({
+          severity: 'error',
+          summary: 'Map Error',
+          detail: 'Error updating map marker. Please try refreshing the page.',
+          life: 5000
+        });
+      }
     },
     updateMeetingMarkers() {
-      // Clear existing meeting markers
-      this.meetingMarkers.forEach(marker => {
-        this.map.removeLayer(marker)
-      })
-      this.meetingMarkers = []
+      // Ensure map is initialized
+      if (!this.map) return;
+      
+      try {
+        // Clear existing meeting markers safely
+        this.meetingMarkers.forEach(marker => {
+          try {
+            if (marker && this.map) {
+              this.map.removeLayer(marker);
+            }
+          } catch (e) {
+            console.warn("Error removing meeting marker:", e);
+          }
+        });
+        this.meetingMarkers = [];
 
-      // Add markers for each nearby meeting
-      this.nearbyMeetings.forEach(meeting => {
-        const marker = L.marker([meeting.lat, meeting.long])
-          .addTo(this.map)
-          .bindPopup(`<b>${meeting.title}</b><br>${this.formatTime(meeting.t1)} - ${this.formatTime(meeting.t2)}`)
+        // Add markers for each nearby meeting
+        this.nearbyMeetings.forEach(meeting => {
+          try {
+            const marker = L.marker([meeting.lat, meeting.long])
+              .addTo(this.map)
+              .bindPopup(`<b>${meeting.title}</b><br>${this.formatTime(meeting.t1)} - ${this.formatTime(meeting.t2)}`);
 
-        marker.on('click', () => {
-          this.$router.push(`/meetings/${meeting.meeting_id}`)
-        })
+            marker.on('click', () => {
+              this.$router.push(`/meetings/${meeting.meeting_id}`);
+            });
 
-        this.meetingMarkers.push(marker)
-      })
+            this.meetingMarkers.push(marker);
+          } catch (e) {
+            console.warn(`Error adding marker for meeting ${meeting.meeting_id}:`, e);
+          }
+        });
+      } catch (e) {
+        console.error("Error updating meeting markers:", e);
+      }
     },
     async reverseGeocode(lat, lng) {
       try {
@@ -380,9 +483,38 @@ export default {
     })
   },
   beforeUnmount() {
-    // Clean up map
-    if (this.map) {
-      this.map.remove()
+    // Clean up map and markers
+    try {
+      // First remove all markers
+      if (this.userMarker) {
+        try {
+          this.map?.removeLayer(this.userMarker);
+        } catch (e) {
+          console.warn("Error removing user marker during cleanup:", e);
+        }
+      }
+      
+      // Clean up meeting markers
+      if (this.meetingMarkers && this.meetingMarkers.length > 0) {
+        for (const marker of this.meetingMarkers) {
+          try {
+            if (marker && this.map) {
+              this.map.removeLayer(marker);
+            }
+          } catch (e) {
+            console.warn("Error removing meeting marker during cleanup:", e);
+          }
+        }
+        this.meetingMarkers = [];
+      }
+      
+      // Finally remove map instance
+      if (this.map) {
+        this.map.remove();
+        this.map = null;
+      }
+    } catch (e) {
+      console.error("Error during map cleanup:", e);
     }
   }
 }
