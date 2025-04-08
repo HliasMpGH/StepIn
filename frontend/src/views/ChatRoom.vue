@@ -12,9 +12,9 @@
           <div class="no-meeting-content">
             <p>You need to join a meeting to access the chat.</p>
             <div class="no-meeting-actions">
-              <Button 
-                label="Find a Meeting" 
-                icon="pi pi-search" 
+              <Button
+                label="Find a Meeting"
+                icon="pi pi-search"
                 class="p-button-success p-button-lg"
                 @click="$router.push('/meetings/find')"
               />
@@ -23,62 +23,63 @@
         </template>
       </Card>
     </div>
-    
+
     <div v-else class="meeting-chat">
       <Card class="chat-card">
         <template #title>
           <div class="chat-header">
-            <Button 
-              icon="pi pi-arrow-left"
-              class="p-button-rounded p-button-text back-button"
-              @click="goBack"
-              v-tooltip="'Back to previous page'"
-            />
             <div class="meeting-info">
               <div class="meeting-title">{{ joinedMeeting.title }}</div>
               <div class="meeting-time">{{ formatTime(joinedMeeting.t1) }} - {{ formatTime(joinedMeeting.t2) }}</div>
+            </div>
+            <div class="participants-info">
+              <Button
+                icon="pi pi-users"
+                class="p-button-rounded p-button-text"
+                @click="showParticipantsDialog = true"
+                v-tooltip="'View Participants'"
+              >
+                <Badge :value="participants.length.toString()" class="ml-1" severity="info"></Badge>
+              </Button>
             </div>
           </div>
         </template>
         <template #content>
           <div class="chat-content">
-            <div class="messages-wrapper">
-              <div class="messages-container" ref="messagesContainer">
-                <div v-if="loadingMessages" class="loading-messages">
-                  <ProgressSpinner />
-                </div>
-                <div v-else-if="messages.length === 0" class="no-messages">
-                  <i class="pi pi-comments"></i>
-                  <p>No messages yet. Be the first to send a message!</p>
-                </div>
-                
-                <div v-else class="messages">
-                  <div 
-                    v-for="(message, index) in messages" 
-                    :key="index" 
-                    :class="['message', message.email === currentUser.email ? 'message-own' : 'message-other']"
-                  >
-                    <div class="message-header">
-                      <span class="message-sender">{{ message.email === currentUser.email ? 'You' : getParticipantName(message.email) }}</span>
-                      <span class="message-time">{{ formatMessageTime(message.timestamp) }}</span>
-                    </div>
-                    <div class="message-content">{{ message.message }}</div>
-                    <div class="message-indicator" v-if="message.email === currentUser.email"></div>
+            <div class="messages-container" ref="messagesContainer">
+              <div v-if="loadingMessages" class="loading-messages">
+                <ProgressSpinner />
+              </div>
+              <div v-else-if="messages.length === 0" class="no-messages">
+                <i class="pi pi-comments"></i>
+                <p>No messages yet. Be the first to send a message!</p>
+              </div>
+
+              <div v-else class="messages">
+                <div
+                  v-for="(message, index) in messages"
+                  :key="index"
+                  :class="['message', message.email === currentUser.email ? 'message-own' : 'message-other']"
+                >
+                  <div class="message-header">
+                    <span class="message-sender">{{ message.email === currentUser.email ? 'You' : getParticipantName(message.email) }}</span>
+                    <span class="message-time">{{ formatMessageTime(message.timestamp) }}</span>
                   </div>
+                  <div class="message-content">{{ message.message }}</div>
                 </div>
               </div>
             </div>
-            
-            <div class="message-input-wrapper">
+
+            <div class="message-input">
               <div class="p-inputgroup">
-                <InputText 
-                  v-model="newMessage" 
-                  placeholder="Type your message..." 
+                <InputText
+                  v-model="newMessage"
+                  placeholder="Type your message..."
                   :disabled="sending"
                   @keyup.enter="sendMessage"
                 />
-                <Button 
-                  icon="pi pi-send" 
+                <Button
+                  icon="pi pi-send"
                   @click="sendMessage"
                   :disabled="!newMessage.trim() || sending"
                   :loading="sending"
@@ -88,11 +89,11 @@
           </div>
         </template>
       </Card>
-      
+
       <!-- Participants Dialog -->
-      <Dialog 
-        v-model:visible="showParticipantsDialog" 
-        header="Meeting Participants" 
+      <Dialog
+        v-model:visible="showParticipantsDialog"
+        header="Meeting Participants"
         :style="{width: '450px'}"
         modal
       >
@@ -105,11 +106,11 @@
           </div>
           <div v-else>
             <div v-for="(participant, index) in participants" :key="index" class="participant-item">
-              <Avatar 
-                :label="getInitials(participant)" 
-                shape="circle" 
-                :style="{ backgroundColor: getAvatarColor(participant) }" 
-                class="mr-2" 
+              <Avatar
+                :label="getInitials(participant)"
+                shape="circle"
+                :style="{ backgroundColor: getAvatarColor(participant) }"
+                class="mr-2"
               />
               <span class="participant-email">{{ participant }}</span>
               <Badge v-if="participant === currentUser.email" value="You" severity="success" />
@@ -117,22 +118,22 @@
           </div>
         </div>
         <template #footer>
-          <Button 
-            label="Close" 
-            icon="pi pi-times" 
-            @click="showParticipantsDialog = false" 
+          <Button
+            label="Close"
+            icon="pi pi-times"
+            @click="showParticipantsDialog = false"
             class="p-button-text"
           />
-          <Button 
+          <Button
             v-if="joinedMeeting"
-            label="Leave Meeting" 
-            icon="pi pi-sign-out" 
-            @click="confirmLeaveMeeting" 
+            label="Leave Meeting"
+            icon="pi pi-sign-out"
+            @click="confirmLeaveMeeting"
             class="p-button-danger"
           />
         </template>
       </Dialog>
-      
+
       <!-- Leave Meeting Confirmation Dialog -->
       <Dialog
         v-model:visible="leaveDialogVisible"
@@ -145,16 +146,16 @@
           <span>Are you sure you want to leave this meeting?</span>
         </div>
         <template #footer>
-          <Button 
-            label="No" 
-            icon="pi pi-times" 
-            @click="leaveDialogVisible = false" 
+          <Button
+            label="No"
+            icon="pi pi-times"
+            @click="leaveDialogVisible = false"
             class="p-button-text"
           />
-          <Button 
-            label="Yes" 
-            icon="pi pi-check" 
-            @click="leaveMeeting" 
+          <Button
+            label="Yes"
+            icon="pi pi-check"
+            @click="leaveMeeting"
             class="p-button-danger"
             :loading="leaving"
           />
@@ -176,7 +177,7 @@ export default {
     const store = useStore();
     const router = useRouter();
     const toast = useToast();
-    
+
     const messagesContainer = ref(null);
     const newMessage = ref('');
     const sending = ref(false);
@@ -187,32 +188,32 @@ export default {
     const leaveDialogVisible = ref(false);
     const refreshInterval = ref(null);
     const participantNames = ref({});  // Cache for participant names
-    
+
     const currentUser = computed(() => store.getters.currentUser);
     const joinedMeeting = computed(() => store.getters.joinedMeeting);
     const messages = computed(() => store.getters.chatMessages || []);
     const participants = computed(() => store.getters.meetingParticipants || []);
-    
+
     onMounted(async () => {
       if (!store.getters.isAuthenticated) {
         router.push('/login');
         return;
       }
-      
+
       if (!joinedMeeting.value) {
         return;
       }
-      
+
       // Initial data load
       try {
         loadingMessages.value = true;
         loadingParticipants.value = true;
-        
+
         await Promise.all([
           refreshMessages(),
           fetchParticipants()
         ]);
-        
+
         // Start refresh interval
         startRefreshInterval();
       } catch (error) {
@@ -222,11 +223,11 @@ export default {
         loadingParticipants.value = false;
       }
     });
-    
+
     onBeforeUnmount(() => {
       stopRefreshInterval();
     });
-    
+
     const scrollToBottom = () => {
       nextTick(() => {
         const container = messagesContainer.value;
@@ -235,10 +236,10 @@ export default {
         }
       });
     };
-    
+
     const refreshMessages = async () => {
       if (!joinedMeeting.value) return;
-      
+
       try {
         await store.dispatch('getMeetingMessages', joinedMeeting.value.meeting_id);
         scrollToBottom();
@@ -246,27 +247,27 @@ export default {
         console.error('Error refreshing messages:', error);
       }
     };
-    
+
     const fetchParticipants = async () => {
       if (!joinedMeeting.value) return;
-      
+
       try {
         await store.dispatch('getMeetingParticipants', joinedMeeting.value.meeting_id);
       } catch (error) {
         console.error('Error fetching participants:', error);
       }
     };
-    
+
     const sendMessage = async () => {
       if (!newMessage.value.trim() || !joinedMeeting.value) return;
-      
+
       sending.value = true;
       try {
         await store.dispatch('postMessage', {
           text: newMessage.value,
           meetingId: joinedMeeting.value.meeting_id
         });
-        
+
         // Clear input and refresh messages
         newMessage.value = '';
         await refreshMessages();
@@ -281,26 +282,26 @@ export default {
         sending.value = false;
       }
     };
-    
+
     const confirmLeaveMeeting = () => {
       showParticipantsDialog.value = false;
       leaveDialogVisible.value = true;
     };
-    
+
     const leaveMeeting = async () => {
       if (!joinedMeeting.value) return;
-      
+
       leaving.value = true;
       try {
         await store.dispatch('leaveMeeting', joinedMeeting.value.meeting_id);
-        
+
         toast.add({
           severity: 'success',
           summary: 'Left Meeting',
           detail: 'You have successfully left the meeting',
           life: 3000
         });
-        
+
         leaveDialogVisible.value = false;
         router.push('/');
       } catch (error) {
@@ -314,63 +315,59 @@ export default {
         leaving.value = false;
       }
     };
-    
-    const goBack = () => {
-      router.back();
-    };
-    
+
     const formatTime = (timeString) => {
       const date = new Date(timeString);
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
-    
+
     const formatMessageTime = (timeString) => {
       const date = new Date(timeString);
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
-    
+
     const getParticipantName = (email) => {
       // In a real app, we would lookup user names from a cache or server
       // For now, just return the email
       return participantNames.value[email] || email;
     };
-    
+
     const startRefreshInterval = () => {
       // Clear any existing interval
       stopRefreshInterval();
-      
+
       // Set up new interval (every 5 seconds)
       refreshInterval.value = setInterval(() => {
         refreshMessages();
         fetchParticipants();
       }, 5000);
     };
-    
+
     const stopRefreshInterval = () => {
       if (refreshInterval.value) {
         clearInterval(refreshInterval.value);
         refreshInterval.value = null;
       }
     };
-    
+
     const getInitials = (email) => {
       if (!email) return '??';
       return email.substring(0, 2).toUpperCase();
     };
-    
+
     const getAvatarColor = (email) => {
       // Generate a consistent color based on email
       if (!email) return '#CCC';
-      
+
       let hash = 0;
       for (let i = 0; i < email.length; i++) {
         hash = email.charCodeAt(i) + ((hash << 5) - hash);
       }
-      
+
       const hue = hash % 360;
       return `hsl(${hue}, 70%, 60%)`;
     };
-    
+
     return {
       messagesContainer,
       newMessage,
@@ -388,7 +385,6 @@ export default {
       sendMessage,
       confirmLeaveMeeting,
       leaveMeeting,
-      goBack,
       formatTime,
       formatMessageTime,
       getParticipantName,
@@ -429,9 +425,6 @@ export default {
   height: calc(100vh - 200px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  overflow: hidden;
 }
 
 .chat-header {
@@ -454,37 +447,16 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
-  position: relative;
-}
-
-.messages-wrapper {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  height: calc(100vh - 320px);
 }
 
 .messages-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex: 1;
   overflow-y: auto;
   padding: 1rem;
   background-color: var(--surface-ground);
-  border-radius: 6px 6px 0 0;
-}
-
-.message-input-wrapper {
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 10px;
-  background-color: var(--surface-card);
-  border-top: 1px solid var(--surface-border);
-  z-index: 5;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  position: relative;
 }
 
 .loading-messages,
@@ -516,48 +488,23 @@ export default {
   gap: 1rem;
 }
 
-.chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.back-button {
-  margin-right: 10px;
-}
-
 .message {
   max-width: 75%;
   padding: 10px;
   border-radius: 10px;
   position: relative;
   margin-bottom: 10px;
-  color: var(--text-color);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .message-own {
   align-self: flex-end;
-  background-color: var(--surface-section);
-  border: 1px solid var(--surface-border);
-  padding-right: 20px; /* Space for indicator */
-  color: var(--text-color); /* Black text color */
+  background-color: var(--primary-color);
+  color: white;
 }
 
 .message-other {
   align-self: flex-start;
   background-color: var(--surface-card);
-  color: var(--text-color); /* Black text color */
-}
-
-.message-indicator {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #2196F3; /* Blue */
 }
 
 .message-header {
@@ -568,7 +515,7 @@ export default {
 }
 
 .message-own .message-header {
-  color: var(--text-color-secondary);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .message-other .message-header {
@@ -588,7 +535,7 @@ export default {
 }
 
 .message-input {
-  width: 100%;
+  padding-top: 0.5rem;
 }
 
 .participants-list {
@@ -635,11 +582,11 @@ export default {
   .chat-card {
     height: calc(100vh - 160px);
   }
-  
+
   .message {
     max-width: 90%;
   }
-  
+
   .no-meeting {
     margin: 2rem auto;
   }
