@@ -3,7 +3,7 @@
     <Card class="login-card">
       <template #title>
         <div class="login-header">
-          <img src="@/assets/logo.png" alt="StepIn Logo" height="60" />
+          <img src="@/assets/logo.png" alt="StepIn Logo" class="stepin-logo" />
           <h1 class="login-title">Welcome to StepIn</h1>
         </div>
       </template>
@@ -12,30 +12,30 @@
           <div class="p-fluid">
             <div class="field">
               <label for="email">Email</label>
-              <InputText 
-                id="email" 
-                v-model="email" 
-                type="email" 
-                required 
+              <InputText
+                id="email"
+                v-model="email"
+                type="email"
+                required
                 :class="{'p-invalid': submitted && !email}"
               />
               <small v-if="submitted && !email" class="p-error">Email is required</small>
             </div>
-            
+
             <div class="field mt-4">
               <Message v-if="error" severity="error">{{ error }}</Message>
             </div>
-            
+
             <div class="field mt-4">
-              <Button 
-                type="submit" 
-                label="Log In" 
-                icon="pi pi-sign-in" 
+              <Button
+                type="submit"
+                label="Log In"
+                icon="pi pi-sign-in"
                 :loading="loading"
                 class="p-button-raised p-button-rounded"
               />
             </div>
-            
+
             <div class="field mt-2 text-center">
               <span>Don't have an account? </span>
               <router-link to="/register">Register</router-link>
@@ -63,25 +63,25 @@ export default {
       this.submitted = true
       this.loading = true
       this.error = ''
-      
+
       if (!this.email) {
         this.loading = false
         return
       }
-      
+
       try {
         // In a real app, we would validate with backend here
         // We're simulating by checking if user exists in the system
         const response = await this.$store.dispatch('getUser', this.email)
-        
+
         if (response) {
           // User exists, proceed with login
           await this.$store.dispatch('login', response)
-          
+
           // Redirect after login
           const redirectPath = this.$route.query.redirect || '/'
           this.$router.push(redirectPath)
-          
+
           this.$toast.add({
             severity: 'success',
             summary: 'Welcome back!',
@@ -129,7 +129,15 @@ export default {
   color: var(--primary-color);
   margin-top: 1rem;
 }
-
+.stepin-logo {
+  height: 230px;
+  width: auto;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  border: none;
+}
 .text-center {
   text-align: center;
 }
