@@ -3,39 +3,38 @@
     <div v-if="loading" class="loading-container">
       <ProgressSpinner />
     </div>
-    
     <div v-else-if="!meeting" class="not-found">
       <h2>Meeting not found</h2>
       <p>The meeting you're looking for doesn't exist or you don't have access.</p>
-      <Button 
-        label="Go Back to Meetings" 
-        icon="pi pi-arrow-left" 
-        @click="$router.push('/meetings')" 
+      <Button
+        label="Go Back to Meetings"
+        icon="pi pi-arrow-left"
+        @click="$router.push('/meetings')"
         class="p-button-rounded p-button-outlined"
       />
     </div>
-    
+
     <div v-else>
       <div class="header">
         <h1>{{ meeting.title }}</h1>
-        <Button 
-          label="Back to Meetings" 
-          icon="pi pi-arrow-left" 
-          class="p-button-rounded p-button-secondary" 
+        <Button
+          label="Back to Meetings"
+          icon="pi pi-arrow-left"
+          class="p-button-rounded p-button-secondary"
           @click="$router.push('/meetings')"
         />
       </div>
-      
+
       <div class="meeting-header">
         <div class="meeting-status">
-          <Tag 
-            :value="meetingStatus.label" 
-            :severity="meetingStatus.severity" 
+          <Tag
+            :value="meetingStatus.label"
+            :severity="meetingStatus.severity"
             :icon="meetingStatus.icon"
           />
         </div>
       </div>
-      
+
       <div class="meeting-content">
         <div class="left-panel">
           <Card class="meeting-detail-card">
@@ -53,34 +52,34 @@
                 <h3>Description</h3>
                 <p>{{ meeting.description }}</p>
               </div>
-              
+
               <div class="meeting-actions">
-                <Button 
-                  v-if="isActive && !hasJoined" 
-                  label="Join Meeting" 
-                  icon="pi pi-sign-in" 
-                  @click="joinMeeting" 
+                <Button
+                  v-if="isActive && !hasJoined"
+                  label="Join Meeting"
+                  icon="pi pi-sign-in"
+                  @click="joinMeeting"
                   class="p-button-success p-button-raised p-button-lg"
                 />
-                <Button 
-                  v-if="hasJoined" 
-                  label="Go to Chat" 
-                  icon="pi pi-comments" 
-                  @click="$router.push('/chat')" 
+                <Button
+                  v-if="hasJoined"
+                  label="Go to Chat"
+                  icon="pi pi-comments"
+                  @click="$router.push('/chat')"
                   class="p-button-info p-button-raised p-button-lg"
                 />
-                <Button 
-                  v-if="hasJoined" 
-                  label="Leave Meeting" 
-                  icon="pi pi-sign-out" 
-                  @click="leaveMeeting" 
+                <Button
+                  v-if="hasJoined"
+                  label="Leave Meeting"
+                  icon="pi pi-sign-out"
+                  @click="leaveMeeting"
                   class="p-button-danger p-button-outlined p-button-lg"
                 />
               </div>
             </template>
           </Card>
         </div>
-        
+
         <div class="right-panel">
           <Card class="details-card">
             <template #title>
@@ -90,15 +89,15 @@
               <div class="detail-item">
                 <h4>Date & Time</h4>
                 <div class="detail-content">
-                  <i class="pi pi-calendar mr-2"></i> 
+                  <i class="pi pi-calendar mr-2"></i>
                   <span>{{ formatDate(meeting.t1) }}</span>
                 </div>
                 <div class="detail-content">
-                  <i class="pi pi-clock mr-2"></i> 
+                  <i class="pi pi-clock mr-2"></i>
                   <span>{{ formatTime(meeting.t1) }} - {{ formatTime(meeting.t2) }}</span>
                 </div>
               </div>
-              
+
               <div class="detail-item">
                 <h4>Location</h4>
                 <div class="detail-content">
@@ -107,7 +106,6 @@
                 </div>
                 <div ref="mapContainer" class="map-container"></div>
               </div>
-              
               <div class="detail-item">
                 <h4>Participants ({{ participants.length }})</h4>
                 <div v-if="loadingParticipants" class="loading-participants">
@@ -116,69 +114,20 @@
                 <div v-else>
                   <ul class="participants-list">
                     <li v-for="(participant, index) in participants" :key="index" class="participant-item">
-                      <Avatar 
-                        :label="getInitials(participant)" 
-                        shape="circle" 
-                        :style="{ backgroundColor: getAvatarColor(participant) }" 
+                      <Avatar
+                        :label="getInitials(participant)"
+                        shape="circle"
+                        :style="{ backgroundColor: getAvatarColor(participant) }"
                       />
                       <span class="participant-name">{{ participant }}</span>
-                      <Tag 
-                        v-if="joinedParticipants.includes(participant)" 
-                        value="Joined" 
-                        severity="success" 
+                      <Tag
+                        v-if="joinedParticipants.includes(participant)"
+                        value="Joined"
+                        severity="success"
                         icon="pi pi-check-circle"
                       />
                     </li>
                   </ul>
-                </div>
-              </div>
-            </template>
-          </Card>
-
-          <Card v-if="hasJoined" class="chat-section chat-card">
-            <template #title>
-              <h3>Meeting Chat</h3>
-            </template>
-            <template #content>
-              <div class="chat-container">
-                <div class="messages-container" ref="messagesContainer">
-                  <div v-if="loadingMessages" class="loading-messages">
-                    <ProgressSpinner style="width: 30px; height: 30px" />
-                  </div>
-                  <div v-else-if="messages.length === 0" class="no-messages">
-                    <p>No messages yet</p>
-                  </div>
-                  <div v-else class="message-list">
-                    <div 
-                      v-for="(message, index) in messages" 
-                      :key="index" 
-                      class="message-item"
-                      :class="{ 'own-message': message.email === currentUser.email }"
-                    >
-                      <div class="message-content">
-                        <div class="message-header">
-                          <span class="message-sender">{{ message.email }}</span>
-                          <small class="message-time">{{ formatTime(message.timestamp) }}</small>
-                        </div>
-                        <div class="message-text">{{ message.message }}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="message-input">
-                  <InputText 
-                    v-model="newMessage" 
-                    placeholder="Type a message..." 
-                    class="p-inputtext-lg"
-                    @keydown.enter="sendMessage"
-                  />
-                  <Button 
-                    icon="pi pi-send" 
-                    @click="sendMessage" 
-                    :disabled="!newMessage.trim()" 
-                    class="p-button-primary p-button-lg"
-                  />
                 </div>
               </div>
             </template>
@@ -204,7 +153,7 @@ export default {
     const route = useRoute();
     const router = useRouter();
     const toast = useToast();
-    
+
     const meetingId = ref(Number(route.params.id));
     const loading = ref(true);
     const meeting = ref(null);
@@ -218,32 +167,32 @@ export default {
     const mapInstance = ref(null);
     const messagesContainer = ref(null);
     const pollingInterval = ref(null);
-    
+
     const currentUser = computed(() => store.getters.currentUser);
     const joinedMeeting = computed(() => store.getters.joinedMeeting);
-    
+
     const hasJoined = computed(() => {
-      return joinedMeeting.value && 
+      return joinedMeeting.value &&
              joinedMeeting.value.meeting_id === meetingId.value;
     });
-    
+
     const isActive = computed(() => {
       if (!meeting.value) return false;
-      
+
       const now = new Date();
       const start = new Date(meeting.value.t1);
       const end = new Date(meeting.value.t2);
-      
+
       return start <= now && end >= now;
     });
-    
+
     const meetingStatus = computed(() => {
       if (!meeting.value) return { label: 'Unknown', severity: 'info', icon: 'pi pi-question-circle' };
-      
+
       const now = new Date();
       const start = new Date(meeting.value.t1);
       const end = new Date(meeting.value.t2);
-      
+
       if (now < start) {
         return { label: 'Upcoming', severity: 'info', icon: 'pi pi-calendar' };
       } else if (now >= start && now <= end) {
@@ -252,22 +201,22 @@ export default {
         return { label: 'Ended', severity: 'danger', icon: 'pi pi-times-circle' };
       }
     });
-    
+
     onMounted(async () => {
       try {
         await fetchMeeting();
-        
+
         // If meeting details loaded successfully
         if (meeting.value) {
           // Initialize map
           initMap();
-          
+
           // Fetch participants and messages
           await Promise.all([
             fetchParticipants(),
             fetchMessages()
           ]);
-          
+
           // If user has joined this meeting, start polling for updates
           if (hasJoined.value) {
             startPolling();
@@ -284,27 +233,27 @@ export default {
         loading.value = false;
       }
     });
-    
+
     onBeforeUnmount(() => {
       stopPolling();
-      
+
       // Clean up map if initialized
       if (mapInstance.value) {
         mapInstance.value.remove();
         mapInstance.value = null;
       }
     });
-    
+
     watch(messagesContainer, () => {
       scrollToBottom();
     });
-    
+
     watch(messages, () => {
       nextTick(() => {
         scrollToBottom();
       });
     });
-    
+
     const fetchMeeting = async () => {
       try {
         meeting.value = await store.dispatch('getMeeting', meetingId.value);
@@ -313,15 +262,15 @@ export default {
         meeting.value = null;
       }
     };
-    
+
     const fetchParticipants = async () => {
       if (!meeting.value) return;
-      
+
       loadingParticipants.value = true;
       try {
         // Get list of all participants from meeting data
         participants.value = meeting.value.participants.split(',').map(email => email.trim());
-        
+
         // Get list of joined participants
         joinedParticipants.value = await store.dispatch('getMeetingParticipants', meetingId.value);
       } catch (error) {
@@ -330,10 +279,10 @@ export default {
         loadingParticipants.value = false;
       }
     };
-    
+
     const fetchMessages = async () => {
       if (!meeting.value || !hasJoined.value) return;
-      
+
       loadingMessages.value = true;
       try {
         messages.value = await store.dispatch('getMeetingMessages', meetingId.value);
@@ -343,22 +292,25 @@ export default {
         loadingMessages.value = false;
       }
     };
-    
+
     const joinMeeting = async () => {
       try {
         await store.dispatch('joinMeeting', meetingId.value);
-        
+
         toast.add({
           severity: 'success',
           summary: 'Joined',
           detail: 'You have successfully joined the meeting',
           life: 3000
         });
-        
+
         // Refresh participants and start polling for updates
         await fetchParticipants();
         await fetchMessages();
         startPolling();
+
+        // Redirect to chat immediately
+        router.push('/chat');
       } catch (error) {
         toast.add({
           severity: 'error',
@@ -368,18 +320,18 @@ export default {
         });
       }
     };
-    
+
     const leaveMeeting = async () => {
       try {
         await store.dispatch('leaveMeeting', meetingId.value);
-        
+
         toast.add({
           severity: 'info',
           summary: 'Left',
           detail: 'You have left the meeting',
           life: 3000
         });
-        
+
         // Stop polling and refresh participants
         stopPolling();
         await fetchParticipants();
@@ -392,16 +344,16 @@ export default {
         });
       }
     };
-    
+
     const sendMessage = async () => {
       if (!newMessage.value.trim() || !hasJoined.value) return;
-      
+
       try {
         await store.dispatch('postMessage', {
           text: newMessage.value,
           meetingId: meetingId.value
         });
-        
+
         // Clear input and fetch updated messages
         newMessage.value = '';
         await fetchMessages();
@@ -414,82 +366,82 @@ export default {
         });
       }
     };
-    
+
     const initMap = () => {
       if (!mapContainer.value || !meeting.value) return;
-      
+
       // Initialize map centered on meeting location
       mapInstance.value = L.map(mapContainer.value).setView(
-        [meeting.value.lat, meeting.value.long], 
+        [meeting.value.lat, meeting.value.long],
         15
       );
-      
+
       // Add OpenStreetMap tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(mapInstance.value);
-      
+
       // Add marker for meeting location
       L.marker([meeting.value.lat, meeting.value.long])
         .addTo(mapInstance.value)
         .bindPopup(meeting.value.title)
         .openPopup();
     };
-    
+
     const startPolling = () => {
       if (pollingInterval.value) return;
-      
+
       // Poll for new messages every 10 seconds
       pollingInterval.value = setInterval(() => {
         fetchMessages();
         fetchParticipants();
       }, 10000);
     };
-    
+
     const stopPolling = () => {
       if (pollingInterval.value) {
         clearInterval(pollingInterval.value);
         pollingInterval.value = null;
       }
     };
-    
+
     const scrollToBottom = () => {
       if (messagesContainer.value) {
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
       }
     };
-    
+
     const formatDate = (dateString) => {
       const date = new Date(dateString);
       return date.toLocaleDateString();
     };
-    
+
     const formatTime = (dateString) => {
       const date = new Date(dateString);
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
-    
+
     const getInitials = (email) => {
       if (!email) return '??';
-      
+
       // Get first letter of email local part
       const localPart = email.split('@')[0];
       return localPart.substring(0, 2).toUpperCase();
     };
-    
+
     const getAvatarColor = (email) => {
       if (!email) return 'var(--primary-color)';
-      
+
       // Generate color based on email string
       let hash = 0;
       for (let i = 0; i < email.length; i++) {
         hash = email.charCodeAt(i) + ((hash << 5) - hash);
       }
-      
+
       const hue = hash % 360;
       return `hsl(${hue}, 70%, 60%)`;
     };
-    
+
     return {
       meeting,
       loading,
@@ -565,6 +517,15 @@ export default {
   margin-bottom: 1.5rem;
   height: auto;
   min-height: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.meeting-detail-card:hover, .details-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .meeting-description {
@@ -740,7 +701,7 @@ export default {
   .meeting-details-container {
     padding: 1rem;
   }
-  
+
   .meeting-actions {
     flex-direction: column;
   }

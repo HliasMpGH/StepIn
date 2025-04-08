@@ -114,12 +114,6 @@ export default {
             command: () => goTo('/meetings/create')
           }
         ]
-      },
-      {
-        label: 'Chat',
-        icon: 'pi pi-fw pi-comments',
-        command: () => goTo('/chat'),
-        disabled: !store.getters.joinedMeeting
       }
     ];
     

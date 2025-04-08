@@ -38,16 +38,6 @@
               <div class="meeting-title">{{ joinedMeeting.title }}</div>
               <div class="meeting-time">{{ formatTime(joinedMeeting.t1) }} - {{ formatTime(joinedMeeting.t2) }}</div>
             </div>
-            <div class="participants-info">
-              <Button 
-                icon="pi pi-users" 
-                class="p-button-rounded p-button-text"
-                @click="showParticipantsDialog = true"
-                v-tooltip="'View Participants'"
-              >
-                <Badge :value="participants.length.toString()" class="ml-1" severity="info"></Badge>
-              </Button>
-            </div>
           </div>
         </template>
         <template #content>
@@ -437,6 +427,9 @@ export default {
   height: calc(100vh - 200px);
   display: flex;
   flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -459,16 +452,19 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 .messages-container {
-  flex: 1;
+  position: absolute;
+  top: 0;
+  bottom: 60px; /* Height of the input area + margin */
+  left: 0;
+  right: 0;
   overflow-y: auto;
   padding: 1rem;
   background-color: var(--surface-ground);
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  position: relative;
+  border-radius: 6px 6px 0 0;
 }
 
 .loading-messages,
@@ -525,11 +521,13 @@ export default {
   background-color: var(--surface-section);
   border: 1px solid var(--surface-border);
   padding-right: 20px; /* Space for indicator */
+  color: var(--text-color); /* Black text color */
 }
 
 .message-other {
   align-self: flex-start;
   background-color: var(--surface-card);
+  color: var(--text-color); /* Black text color */
 }
 
 .message-indicator {
@@ -570,7 +568,15 @@ export default {
 }
 
 .message-input {
-  padding-top: 0.5rem;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  background-color: var(--surface-card);
+  border-top: 1px solid var(--surface-border);
+  display: flex;
+  gap: 8px;
 }
 
 .participants-list {
