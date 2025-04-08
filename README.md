@@ -1,8 +1,8 @@
-# StepIn Backend
+# StepIn
 
-FastAPI backend for the StepIn physical meeting application.
+StepIn - physical meeting application.
 
-## Project Structure
+## Backend Project Structure
 
 ```
 backend/
