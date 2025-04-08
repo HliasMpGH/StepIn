@@ -28,14 +28,12 @@
           </div>
           <div v-else class="meetings-grid">
             <div v-for="meeting in activeMeetings" :key="meeting.meeting_id" class="meeting-card">
-              <Card>
+              <Card class="custom-card">
                 <template #header>
                   <div class="meeting-header">
+                    <h3 class="meeting-title">{{ meeting.title }}</h3>
                     <Badge value="Active" severity="success" />
                   </div>
-                </template>
-                <template #title>
-                  <div class="meeting-title">{{ meeting.title }}</div>
                 </template>
                 <template #content>
                   <div class="meeting-info">
@@ -49,23 +47,26 @@
                         <i class="pi pi-users"></i>
                         <span>{{ meeting.participants.split(',').length }} participants</span>
                       </div>
+                      <div class="detail-item">
+                        <i class="pi pi-map-marker"></i>
+                        <span>Lat: {{ meeting.lat.toFixed(4) }}, Long: {{ meeting.long.toFixed(4) }}</span>
+                      </div>
                     </div>
                   </div>
                 </template>
                 <template #footer>
                   <div class="meeting-actions">
                     <Button 
-                      label="Join Meeting" 
-                      icon="pi pi-sign-in" 
-                      @click="joinMeeting(meeting.meeting_id)" 
-                      class="p-button-lg p-button-success"
-                      style="margin-right: 0.5rem;"
-                    />
-                    <Button 
                       label="View Details" 
                       icon="pi pi-info-circle" 
                       @click="viewMeeting(meeting.meeting_id)" 
-                      class="p-button-lg p-button-info p-button-outlined"
+                      class="p-button p-button-info p-button-outlined"
+                    />
+                    <Button 
+                      label="Join Meeting" 
+                      icon="pi pi-sign-in" 
+                      @click="joinMeeting(meeting.meeting_id)" 
+                      class="p-button p-button-success"
                     />
                   </div>
                 </template>
@@ -90,14 +91,12 @@
           </div>
           <div v-else class="meetings-grid">
             <div v-for="meeting in upcomingMeetings" :key="meeting.meeting_id" class="meeting-card">
-              <Card>
+              <Card class="custom-card">
                 <template #header>
                   <div class="meeting-header">
+                    <h3 class="meeting-title">{{ meeting.title }}</h3>
                     <Badge value="Upcoming" severity="info" />
                   </div>
-                </template>
-                <template #title>
-                  <div class="meeting-title">{{ meeting.title }}</div>
                 </template>
                 <template #content>
                   <div class="meeting-info">
@@ -111,16 +110,20 @@
                         <i class="pi pi-users"></i>
                         <span>{{ meeting.participants.split(',').length }} participants</span>
                       </div>
+                      <div class="detail-item">
+                        <i class="pi pi-map-marker"></i>
+                        <span>Lat: {{ meeting.lat.toFixed(4) }}, Long: {{ meeting.long.toFixed(4) }}</span>
+                      </div>
                     </div>
                   </div>
                 </template>
                 <template #footer>
                   <div class="meeting-actions">
                     <Button 
-                      label="View" 
+                      label="View Details" 
                       icon="pi pi-info-circle" 
                       @click="viewMeeting(meeting.meeting_id)" 
-                      class="p-button-sm p-button-outlined"
+                      class="p-button p-button-info"
                     />
                   </div>
                 </template>
@@ -396,49 +399,74 @@ export default {
 
 .meeting-card {
   height: 100%;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.meeting-card:hover {
+.custom-card {
+  height: 100%;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background-color: white;
+}
+
+.custom-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 .meeting-header {
   padding: 1rem;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--surface-ground);
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .meeting-title {
-  font-weight: 600;
-  font-size: 1.2rem;
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
 }
 
 .meeting-info {
   margin-bottom: 1rem;
+  color: var(--text-color);
+}
+
+.meeting-info p {
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
 }
 
 .meeting-details {
-  margin-top: 1rem;
+  margin-top: 1.5rem;
+  background-color: var(--surface-section);
+  padding: 1rem;
+  border-radius: 8px;
 }
 
 .detail-item {
   display: flex;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.8rem;
+  font-size: 1rem;
 }
 
 .detail-item i {
-  margin-right: 0.5rem;
+  margin-right: 0.8rem;
   color: var(--primary-color);
+  font-size: 1.2rem;
 }
 
 .meeting-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
 }
 
 @media (max-width: 768px) {

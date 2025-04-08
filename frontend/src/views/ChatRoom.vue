@@ -42,32 +42,34 @@
         </template>
         <template #content>
           <div class="chat-content">
-            <div class="messages-container" ref="messagesContainer">
-              <div v-if="loadingMessages" class="loading-messages">
-                <ProgressSpinner />
-              </div>
-              <div v-else-if="messages.length === 0" class="no-messages">
-                <i class="pi pi-comments"></i>
-                <p>No messages yet. Be the first to send a message!</p>
-              </div>
-              
-              <div v-else class="messages">
-                <div 
-                  v-for="(message, index) in messages" 
-                  :key="index" 
-                  :class="['message', message.email === currentUser.email ? 'message-own' : 'message-other']"
-                >
-                  <div class="message-header">
-                    <span class="message-sender">{{ message.email === currentUser.email ? 'You' : getParticipantName(message.email) }}</span>
-                    <span class="message-time">{{ formatMessageTime(message.timestamp) }}</span>
+            <div class="messages-wrapper">
+              <div class="messages-container" ref="messagesContainer">
+                <div v-if="loadingMessages" class="loading-messages">
+                  <ProgressSpinner />
+                </div>
+                <div v-else-if="messages.length === 0" class="no-messages">
+                  <i class="pi pi-comments"></i>
+                  <p>No messages yet. Be the first to send a message!</p>
+                </div>
+                
+                <div v-else class="messages">
+                  <div 
+                    v-for="(message, index) in messages" 
+                    :key="index" 
+                    :class="['message', message.email === currentUser.email ? 'message-own' : 'message-other']"
+                  >
+                    <div class="message-header">
+                      <span class="message-sender">{{ message.email === currentUser.email ? 'You' : getParticipantName(message.email) }}</span>
+                      <span class="message-time">{{ formatMessageTime(message.timestamp) }}</span>
+                    </div>
+                    <div class="message-content">{{ message.message }}</div>
+                    <div class="message-indicator" v-if="message.email === currentUser.email"></div>
                   </div>
-                  <div class="message-content">{{ message.message }}</div>
-                  <div class="message-indicator" v-if="message.email === currentUser.email"></div>
                 </div>
               </div>
             </div>
             
-            <div class="message-input">
+            <div class="message-input-wrapper">
               <div class="p-inputgroup">
                 <InputText 
                   v-model="newMessage" 
@@ -455,16 +457,34 @@ export default {
   position: relative;
 }
 
+.messages-wrapper {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  height: calc(100vh - 320px);
+}
+
 .messages-container {
   position: absolute;
   top: 0;
-  bottom: 60px; /* Height of the input area + margin */
   left: 0;
   right: 0;
+  bottom: 0;
   overflow-y: auto;
   padding: 1rem;
   background-color: var(--surface-ground);
   border-radius: 6px 6px 0 0;
+}
+
+.message-input-wrapper {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  background-color: var(--surface-card);
+  border-top: 1px solid var(--surface-border);
+  z-index: 5;
 }
 
 .loading-messages,
@@ -568,15 +588,7 @@ export default {
 }
 
 .message-input {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 10px;
-  background-color: var(--surface-card);
-  border-top: 1px solid var(--surface-border);
-  display: flex;
-  gap: 8px;
+  width: 100%;
 }
 
 .participants-list {

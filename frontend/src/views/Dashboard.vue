@@ -201,6 +201,9 @@ export default {
 
         // Fetch participants
         this.fetchParticipants()
+        
+        // Redirect to chat immediately
+        this.$router.push('/chat')
       } catch (error) {
         this.$toast.add({
           severity: 'error',
