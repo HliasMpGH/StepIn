@@ -136,15 +136,33 @@
         <!-- Full-width location card -->
         <Card class="location-card">
           <template #title>
-            <h3>Meeting Location</h3>
+            <div class="location-title">
+              <i class="pi pi-map mr-2"></i>
+              <h3>Meeting Location</h3>
+            </div>
           </template>
           <template #content>
             <div class="location-details">
-              <div class="detail-content">
-                <i class="pi pi-map-marker mr-2"></i>
-                <span>Latitude: {{ meeting.lat.toFixed(6) }}, Longitude: {{ meeting.long.toFixed(6) }}</span>
+              <!-- Location information - only show address if available -->
+              <div class="location-info" v-if="locationAddress">
+                <div class="address-section">
+                  <i class="pi pi-building mr-2"></i>
+                  <span>{{ locationAddress }}</span>
+                </div>
               </div>
+              
+              <!-- The map container -->
               <div ref="mapContainer" class="map-container-full"></div>
+              
+              <!-- Map actions -->
+              <div class="map-actions">
+                <Button 
+                  label="Get Directions in Google Maps" 
+                  icon="pi pi-map" 
+                  class="p-button p-button-success"
+                  @click="openInMaps"
+                />
+              </div>
             </div>
           </template>
         </Card>
@@ -160,6 +178,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import axios from 'axios';
 
 export default {
   name: 'MeetingDetails',
@@ -182,6 +201,8 @@ export default {
     const mapInstance = ref(null);
     const messagesContainer = ref(null);
     const pollingInterval = ref(null);
+    const locationAddress = ref('');
+    const loadingAddress = ref(false);
 
     const currentUser = computed(() => store.getters.currentUser);
     const joinedMeeting = computed(() => store.getters.joinedMeeting);
@@ -223,7 +244,7 @@ export default {
 
         // If meeting details loaded successfully
         if (meeting.value) {
-          // Initialize map
+          // Initialize map - this will trigger address lookup
           initMap();
 
           // Fetch participants and messages
@@ -385,28 +406,72 @@ export default {
     const initMap = () => {
       if (!mapContainer.value || !meeting.value) return;
 
-      // Wait for the DOM to be ready and rendered
-      setTimeout(() => {
-        // Initialize map centered on meeting location
-        mapInstance.value = L.map(mapContainer.value).setView(
-          [meeting.value.lat, meeting.value.long],
-          15
-        );
+      // Set a listener for when the DOM is fully loaded
+      nextTick(() => {
+        // Add slight delay to ensure the map container is properly rendered
+        setTimeout(() => {
+          try {
+            console.log("Initializing map...");
+            console.log("Map container:", mapContainer.value);
+            console.log("Meeting coordinates:", meeting.value.lat, meeting.value.long);
+            
+            // Check if map was already initialized
+            if (mapInstance.value) {
+              console.log("Removing existing map instance");
+              mapInstance.value.remove();
+              mapInstance.value = null;
+            }
+            
+            // Simple map initialization with minimum options to improve reliability
+            mapInstance.value = L.map(mapContainer.value, {
+              zoomControl: true,
+              scrollWheelZoom: true,
+              // Disable animations to prevent errors
+              fadeAnimation: false,
+              zoomAnimation: false
+            }).setView([meeting.value.lat, meeting.value.long], 15);
 
-        // Add OpenStreetMap tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(mapInstance.value);
+            // Add basic tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(mapInstance.value);
 
-        // Add marker for meeting location
-        L.marker([meeting.value.lat, meeting.value.long])
-          .addTo(mapInstance.value)
-          .bindPopup(meeting.value.title)
-          .openPopup();
-          
-        // Invalidate size after rendering to ensure correct display
-        mapInstance.value.invalidateSize();
-      }, 300);
+            // Add a prominent marker for the meeting location
+            const meetingIcon = L.icon({
+              iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+              shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+              iconSize: [25, 41],
+              iconAnchor: [12, 41],
+              popupAnchor: [1, -34],
+              shadowSize: [41, 41]
+            });
+            
+            const meetingMarker = L.marker([meeting.value.lat, meeting.value.long], {
+              icon: meetingIcon,
+              title: meeting.value.title
+            }).addTo(mapInstance.value);
+            
+            // Simple popup with just the meeting title
+            meetingMarker.bindPopup(`<b>${meeting.value.title}</b>`).openPopup();
+            
+            // Lookup address for this location
+            lookupAddress();
+            
+            console.log("Map initialization complete");
+            
+            // Force resize to ensure proper display
+            mapInstance.value.invalidateSize();
+          } catch (error) {
+            console.error('Error initializing map:', error);
+            toast.add({
+              severity: 'error',
+              summary: 'Map Error',
+              detail: 'Failed to initialize the map. Please try refreshing the page.',
+              life: 3000
+            });
+          }
+        }, 500); // Increased delay for better reliability
+      });
     };
 
     const startPolling = () => {
@@ -463,6 +528,65 @@ export default {
       return `hsl(${hue}, 70%, 60%)`;
     };
 
+    // Method to lookup address from coordinates
+    const lookupAddress = async () => {
+      if (!meeting.value) return;
+      
+      loadingAddress.value = true;
+      try {
+        const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+          params: {
+            format: 'json',
+            lat: meeting.value.lat,
+            lon: meeting.value.long,
+            zoom: 18,
+            addressdetails: 1
+          },
+          headers: {
+            'Accept-Language': 'en',
+            'User-Agent': 'StepIn Meeting App'
+          }
+        });
+        
+        if (response.data && response.data.display_name) {
+          locationAddress.value = response.data.display_name;
+        } else {
+          toast.add({
+            severity: 'info',
+            summary: 'Address Not Found',
+            detail: 'Could not find a readable address for this location',
+            life: 3000
+          });
+        }
+      } catch (error) {
+        console.error('Error looking up address:', error);
+        toast.add({
+          severity: 'error',
+          summary: 'Address Lookup Failed',
+          detail: 'Unable to retrieve address information',
+          life: 3000
+        });
+      } finally {
+        loadingAddress.value = false;
+      }
+    };
+    
+    // Method to open location in Google Maps
+    const openInMaps = () => {
+      if (!meeting.value) return;
+      
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${meeting.value.lat},${meeting.value.long}`;
+      window.open(url, '_blank');
+    };
+    
+    // Method to open location in OpenStreetMap
+    const openOSM = () => {
+      if (!meeting.value) return;
+      
+      const url = `https://www.openstreetmap.org/?mlat=${meeting.value.lat}&mlon=${meeting.value.long}&zoom=16`;
+      window.open(url, '_blank');
+    };
+
     return {
       meeting,
       loading,
@@ -479,9 +603,14 @@ export default {
       meetingStatus,
       mapContainer,
       messagesContainer,
+      locationAddress,
+      loadingAddress,
       joinMeeting,
       leaveMeeting,
       sendMessage,
+      lookupAddress,
+      openInMaps,
+      openOSM,
       formatDate,
       formatTime,
       getInitials,
@@ -551,10 +680,35 @@ export default {
 }
 
 .map-container-full {
-  height: 400px;
+  height: 500px;
   border-radius: 8px;
-  margin-top: 1rem;
+  margin: 0.5rem 0 1rem 0;
   width: 100%;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--surface-border);
+  z-index: 1; /* Ensure map controls work properly */
+}
+
+/* Fix leaflet popup styling */
+:deep(.leaflet-popup-content-wrapper) {
+  border-radius: 8px;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2);
+}
+
+:deep(.leaflet-popup-content) {
+  margin: 12px 16px;
+  line-height: 1.5;
+}
+
+:deep(.leaflet-control-zoom) {
+  margin: 12px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+:deep(.leaflet-control-scale) {
+  margin: 8px 12px;
 }
 
 .meeting-description {
@@ -738,5 +892,65 @@ export default {
   .map-container-full {
     height: 300px;
   }
+  
+  .map-actions {
+    flex-direction: column;
+  }
+}
+
+/* Location specific styles */
+.location-title {
+  display: flex;
+  align-items: center;
+}
+
+.location-title h3 {
+  margin: 0;
+}
+
+.location-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.location-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.address-section {
+  display: flex;
+  align-items: flex-start;
+  background-color: var(--surface-ground);
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+.address-section i {
+  margin-top: 3px;
+}
+
+.location-coordinates {
+  font-family: monospace;
+  background-color: var(--surface-ground);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.map-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.mt-2 {
+  margin-top: 0.5rem;
 }
 </style>
