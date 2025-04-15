@@ -24,6 +24,7 @@ class RedisManager:
         # Redis keys
         self.active_meetings_key = "active_meetings"  # Set of active meeting IDs
         self.meeting_prefix = "meeting:"  # Prefix for meeting hash
+        self.meeting_positions_key = "meeting_positions" # Key for meetings geospatials
         self.participants_prefix = "participants:"  # Prefix for participants set
         self.joined_prefix = "joined:"  # Prefix for joined participants set
         self.chat_prefix = "chat:"  # Prefix for chat list
@@ -45,6 +46,12 @@ class RedisManager:
             "t2": t2.isoformat() if isinstance(t2, datetime) else t2
         }
         self.redis_client.hset(meeting_key, mapping=meeting_data)
+
+        # Add geoposition of meeting
+        self.redis_client.geoadd(self.meeting_positions_key, [lat, long, meeting_id])
+
+        print(f"ADDED GEOSPATIAL")
+        print(self.redis_client.zrange(self.meeting_positions_key, 0, -1))
 
         # Add to active meetings set - convert meeting_id to string for Redis
         meeting_id_str = str(meeting_id)
@@ -79,6 +86,12 @@ class RedisManager:
         # Remove from active meetings set
         self.redis_client.srem(self.active_meetings_key, meeting_id_str)
 
+        # Remove from geopositions
+        self.redis_client.zrem(self.meeting_positions_key, meeting_id_str)
+
+        print(f"REMOVED GEOSPATIAL")
+        print(self.redis_client.zrange(self.meeting_positions_key, 0, -1))
+
         # Get list of joined participants for timeout logging
         joined_key = f"{self.joined_prefix}{meeting_id}"
         joined_participants = self.redis_client.smembers(joined_key)
@@ -111,31 +124,29 @@ class RedisManager:
 
     def get_nearby_meetings_for_user(self, email, x, y, max_distance=100):
         """Get active meetings near user's location where user is a participant"""
-        active_meetings = self.get_active_meetings()
-        nearby_meetings = []
 
-        for meeting_id in active_meetings:
+        # get all nearby meetings of (x, y) using meters
+        nearby_meetings = self.redis_client.geosearch(
+            self.meeting_positions_key,
+            longitude=x,
+            latitude=y,
+            radius=max_distance,
+            unit="m"
+        )
+
+        print(f"NEARBY of {x, y}: {nearby_meetings}")
+
+        # retain only the meetings the user can participate
+        filtered_meetings = []
+        for meeting_id in nearby_meetings:
             # Check if user is in participants list
             participants_key = f"{self.participants_prefix}{meeting_id}"
             if not self.redis_client.sismember(participants_key, email):
                 continue
 
-            # Get meeting details
-            meeting_key = f"{self.meeting_prefix}{meeting_id}"
-            meeting = self.redis_client.hgetall(meeting_key)
+            filtered_meetings.append(meeting_id)
 
-            if not meeting:
-                continue
-
-            # Calculate distance
-            meeting_location = (float(meeting["lat"]), float(meeting["long"]))
-            user_location = (float(x), float(y))
-            distance = geodesic(meeting_location, user_location).meters
-
-            if distance <= max_distance:
-                nearby_meetings.append(int(meeting_id))
-
-        return nearby_meetings
+        return filtered_meetings
 
     def join_meeting(self, email, meeting_id):
         """User joins a meeting"""
@@ -213,7 +224,7 @@ class RedisManager:
             "timestamp": datetime.now().isoformat()
         }
 
-        # Add message to chat list
+        # Add message to chat list of meeting
         chat_key = f"{self.chat_prefix}{meeting_id}"
         self.redis_client.rpush(chat_key, json.dumps(chat_message))
 
