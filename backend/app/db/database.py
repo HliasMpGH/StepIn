@@ -10,7 +10,7 @@ class Database:
     def __init__(self):
         # Check if we're using PostgreSQL or SQLite
         self.use_postgres = settings.USE_POSTGRES
-        
+
         if self.use_postgres:
             # PostgreSQL connection
             self.conn = psycopg2.connect(
@@ -23,20 +23,20 @@ class Database:
         else:
             # SQLite connection
             self.conn = sqlite3.connect(
-                settings.DB_PATH, 
+                settings.DB_PATH,
                 check_same_thread=False
             )
             self.conn.row_factory = sqlite3.Row
-            
+
         self.create_tables()
-    
+
     def create_tables(self):
         """Create database tables if they don't exist"""
         if self.use_postgres:
             self._create_tables_postgres()
         else:
             self._create_tables_sqlite()
-    
+
     def _create_tables_postgres(self):
         """Create tables for PostgreSQL"""
         with self.conn.cursor() as cur:
@@ -45,11 +45,11 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     email VARCHAR(255) PRIMARY KEY,
                     name VARCHAR(255) NOT NULL,
-                    age INTEGER,
+                    age SMALLINT CHECK (age > 0),
                     gender VARCHAR(50)
                 )
             """)
-            
+
             # Create meetings table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS meetings (
@@ -63,7 +63,7 @@ class Database:
                     participants TEXT NOT NULL
                 )
             """)
-            
+
             # Create log table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
@@ -71,12 +71,12 @@ class Database:
                     email VARCHAR(255) NOT NULL,
                     meeting_id INTEGER NOT NULL,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    action INTEGER NOT NULL,
+                    action SMALLINT NOT NULL CHECK (action IN (1, 2, 3)),
                     FOREIGN KEY (email) REFERENCES users(email),
                     FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
                 )
             """)
-            
+
             # Create chat messages table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS chat_messages (
@@ -89,9 +89,9 @@ class Database:
                     FOREIGN KEY (email) REFERENCES users(email)
                 )
             """)
-            
+
             self.conn.commit()
-    
+
     def _create_tables_sqlite(self):
         """Create tables for SQLite"""
         with self.conn:
@@ -104,7 +104,7 @@ class Database:
                     gender TEXT
                 )
             """)
-            
+
             # Create meetings table
             self.conn.execute("""
                 CREATE TABLE IF NOT EXISTS meetings (
@@ -118,7 +118,7 @@ class Database:
                     participants TEXT NOT NULL
                 )
             """)
-            
+
             # Create log table
             self.conn.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
@@ -131,7 +131,7 @@ class Database:
                     FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
                 )
             """)
-            
+
             # Create chat messages table
             self.conn.execute("""
                 CREATE TABLE IF NOT EXISTS chat_messages (
@@ -144,7 +144,7 @@ class Database:
                     FOREIGN KEY (email) REFERENCES users(email)
                 )
             """)
-    
+
     def add_user(self, email, name, age, gender):
         """Add a new user to the database"""
         if self.use_postgres:
@@ -162,7 +162,7 @@ class Database:
                     (email, name, age, gender)
                 )
                 return True
-    
+
     def get_user(self, email):
         """Get user details by email"""
         if self.use_postgres:
@@ -184,14 +184,14 @@ class Database:
                     "gender": user["gender"]
                 }
             return None
-    
+
     def add_meeting(self, title, description, t1, t2, lat, long, participants):
         """Add a new meeting"""
         if self.use_postgres:
             with self.conn.cursor() as cur:
                 cur.execute(
-                    """INSERT INTO meetings 
-                       (title, description, t1, t2, lat, long, participants) 
+                    """INSERT INTO meetings
+                       (title, description, t1, t2, lat, long, participants)
                        VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING meeting_id""",
                     (title, description, t1, t2, lat, long, participants)
                 )
@@ -202,13 +202,13 @@ class Database:
             cursor = self.conn.cursor()
             with self.conn:
                 cursor.execute(
-                    """INSERT INTO meetings 
-                       (title, description, t1, t2, lat, long, participants) 
+                    """INSERT INTO meetings
+                       (title, description, t1, t2, lat, long, participants)
                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
                     (title, description, t1, t2, lat, long, participants)
                 )
                 return cursor.lastrowid
-    
+
     def get_meeting(self, meeting_id):
         """Get meeting details by ID"""
         if self.use_postgres:
@@ -234,20 +234,19 @@ class Database:
                     "participants": meeting["participants"]
                 }
             return None
-    
+
     def get_active_meetings(self):
         """Get list of active meeting IDs"""
         current_time = datetime.now(timezone.utc).isoformat()
         print(f"Current time for active meetings check: {current_time}")
-        
+
         # We'll extend meeting activation for 2 hours after creation
         # by using only t1 for "active" status check
         if self.use_postgres:
             with self.conn.cursor() as cur:
                 cur.execute(
-                    """SELECT meeting_id FROM meetings 
-                       WHERE t1 <= %s""",
-                    (current_time,)
+                    """SELECT meeting_id FROM meetings
+                       WHERE t1 <= CURRENT_TIMESTAMP AND t2 >= CURRENT_TIMESTAMP"""
                 )
                 result = [row["meeting_id"] for row in cur.fetchall()]
                 print(f"PostgreSQL active meetings: {result}")
@@ -255,20 +254,19 @@ class Database:
         else:
             cursor = self.conn.cursor()
             cursor.execute(
-                """SELECT meeting_id, title, t1, t2 FROM meetings 
-                   WHERE t1 <= ?""",
-                (current_time,)
+                """SELECT meeting_id, title, t1, t2 FROM meetings
+                WHERE t1 <= datetime('now','localtime') AND t2 >= datetime('now','localtime')"""
             )
             rows = cursor.fetchall()
-            
+
             # Debug output
             for row in rows:
                 print(f"Meeting {row['meeting_id']} ({row['title']}): t1={row['t1']}, t2={row['t2']}")
-                
+
             result = [row["meeting_id"] for row in rows]
             print(f"SQLite active meetings: {result}")
             return result
-    
+
     def log_action(self, email, meeting_id, action):
         """Log a user action for a meeting"""
         if self.use_postgres:
@@ -286,7 +284,7 @@ class Database:
                     (email, meeting_id, action)
                 )
                 return True
-    
+
     def save_chat_message(self, meeting_id, email, message):
         """Save a chat message"""
         if self.use_postgres:
@@ -304,13 +302,13 @@ class Database:
                     (meeting_id, email, message)
                 )
                 return True
-    
+
     def get_meeting_messages(self, meeting_id):
         """Get all messages for a meeting"""
         if self.use_postgres:
             with self.conn.cursor() as cur:
                 cur.execute(
-                    """SELECT email, message, timestamp FROM chat_messages 
+                    """SELECT email, message, timestamp FROM chat_messages
                        WHERE meeting_id = %s ORDER BY timestamp""",
                     (meeting_id,)
                 )
@@ -318,26 +316,26 @@ class Database:
         else:
             cursor = self.conn.cursor()
             cursor.execute(
-                """SELECT email, message, timestamp FROM chat_messages 
+                """SELECT email, message, timestamp FROM chat_messages
                    WHERE meeting_id = ? ORDER BY timestamp""",
                 (meeting_id,)
             )
-            return [{"email": row["email"], "message": row["message"], "timestamp": row["timestamp"]} 
+            return [{"email": row["email"], "message": row["message"], "timestamp": row["timestamp"]}
                     for row in cursor.fetchall()]
-    
+
     def get_user_messages(self, email, meeting_id=None):
         """Get all messages by a user (optionally for a specific meeting)"""
         if self.use_postgres:
             with self.conn.cursor() as cur:
                 if meeting_id:
                     cur.execute(
-                        """SELECT meeting_id, message, timestamp FROM chat_messages 
+                        """SELECT meeting_id, message, timestamp FROM chat_messages
                            WHERE email = %s AND meeting_id = %s ORDER BY timestamp""",
                         (email, meeting_id)
                     )
                 else:
                     cur.execute(
-                        """SELECT meeting_id, message, timestamp FROM chat_messages 
+                        """SELECT meeting_id, message, timestamp FROM chat_messages
                            WHERE email = %s ORDER BY timestamp""",
                         (email,)
                     )
@@ -346,17 +344,17 @@ class Database:
             cursor = self.conn.cursor()
             if meeting_id:
                 cursor.execute(
-                    """SELECT meeting_id, message, timestamp FROM chat_messages 
+                    """SELECT meeting_id, message, timestamp FROM chat_messages
                        WHERE email = ? AND meeting_id = ? ORDER BY timestamp""",
                     (email, meeting_id)
                 )
             else:
                 cursor.execute(
-                    """SELECT meeting_id, message, timestamp FROM chat_messages 
+                    """SELECT meeting_id, message, timestamp FROM chat_messages
                        WHERE email = ? ORDER BY timestamp""",
                     (email,)
                 )
-            return [{"meeting_id": row["meeting_id"], "message": row["message"], "timestamp": row["timestamp"]} 
+            return [{"meeting_id": row["meeting_id"], "message": row["message"], "timestamp": row["timestamp"]}
                     for row in cursor.fetchall()]
 
 
