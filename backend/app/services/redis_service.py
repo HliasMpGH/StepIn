@@ -29,6 +29,7 @@ class RedisManager:
         self.joined_prefix = "joined:"  # Prefix for joined participants set
         self.chat_prefix = "chat:"  # Prefix for chat list
         self.user_joined_meeting = "user_joined_meeting:"  # Prefix for user's joined meeting
+        self.user_participate_meetings = "user_participate_meetings:"  # Prefix for all meetings the user is a participant
 
     def activate_meeting(self, meeting_id, title, description, lat, long, participants, t2):
         """Activate a meeting in Redis"""
@@ -62,7 +63,14 @@ class RedisManager:
         for email in participants.split(","):
             email_clean = email.strip()
             if email_clean:  # Skip empty emails
+                # add user to participant of meeting
                 self.redis_client.sadd(participants_key, email_clean)
+
+                # add meeting to the participated meetings of user (secondary index)
+                user_participate_key = f"{self.user_participate_meetings}{email_clean}"
+                self.redis_client.sadd(user_participate_key, meeting_id)
+
+                print(f"{email_clean} participated meetings: {self.redis_client.smembers(user_participate_key)}")
 
         # Initialize joined participants set
         joined_key = f"{self.joined_prefix}{meeting_id}"
@@ -101,10 +109,17 @@ class RedisManager:
         participants_key = f"{self.participants_prefix}{meeting_id}"
         chat_key = f"{self.chat_prefix}{meeting_id}"
 
-        # For each joined user, remove this meeting from their active meetings
+        # For each joined user, remove this meeting from their active meeting
         for email in joined_participants:
             user_meetings_key = f"{self.user_joined_meeting}{email}"
             self.redis_client.delete(user_meetings_key)
+
+        # For each participant, remove this meeting from their participated meetings
+        for email in self.redis_client.smembers(participants_key):
+            user_participate_key = f"{self.user_participate_meetings}{email}"
+            self.redis_client.srem(user_participate_key, meeting_id)
+            print(f"removed {meeting_id} from {email}")
+            print(f"{email} participated meetings: {self.redis_client.smembers(user_participate_key)}")
 
         # Delete all keys related to this meeting
         self.redis_client.delete(meeting_key, participants_key, joined_key, chat_key)
@@ -136,17 +151,13 @@ class RedisManager:
 
         print(f"NEARBY of {x, y}: {nearby_meetings}")
 
-        # retain only the meetings the user can participate
-        filtered_meetings = []
-        for meeting_id in nearby_meetings:
-            # Check if user is in participants list
-            participants_key = f"{self.participants_prefix}{meeting_id}"
-            if not self.redis_client.sismember(participants_key, email):
-                continue
+        user_participate_key = f"{self.user_participate_meetings}{email}"
+        meetings_participate = self.redis_client.smembers(user_participate_key)
 
-            filtered_meetings.append(meeting_id)
-
-        return filtered_meetings
+        print(f"{email} is participant of {meetings_participate}")
+        print(f"return: {set(nearby_meetings) & meetings_participate}")
+        # the intersection of these sets are the nearby meetings the user can join
+        return set(nearby_meetings) & meetings_participate
 
     def join_meeting(self, email, meeting_id):
         """User joins a meeting"""
