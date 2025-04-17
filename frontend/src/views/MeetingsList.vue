@@ -311,10 +311,12 @@ export default {
           router.push('/chat');
         }
       } catch (error) {
+        const errorMessage = error.response?.data?.detail ||
+                            error.message || 'Failed to join meeting';
         toast.add({
           severity: 'error',
           summary: 'Error',
-          detail: error.message || 'Failed to join meeting',
+          detail: errorMessage,
           life: 3000
         });
       }

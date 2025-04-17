@@ -12,7 +12,7 @@ meeting_service = MeetingService()
 @router.post("", response_model=MeetingIdResponse, responses={400: {"model": ErrorResponse}})
 async def create_meeting(meeting: MeetingCreate):
     try:
-        meeting_id = meeting_service.create_meeting(
+        result = meeting_service.create_meeting(
             meeting.title,
             meeting.description,
             meeting.t1,
@@ -21,12 +21,15 @@ async def create_meeting(meeting: MeetingCreate):
             meeting.long,
             meeting.participants
         )
-        
+
         # Force refresh the active meetings list to ensure new meeting is included
         # This step will sync the DB and Redis after a new meeting is created
         meeting_service.get_active_meetings()
-        
-        return MeetingIdResponse(meeting_id=meeting_id)
+
+        if isinstance(result, dict) and "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+
+        return MeetingIdResponse(meeting_id=result)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -48,7 +51,7 @@ async def nearby_meetings(email: str, x: float, y: float):
         # Convert string parameters to appropriate types
         x_float = float(x)
         y_float = float(y)
-        
+
         result = meeting_service.find_nearby_meetings(email, x_float, y_float)
         if isinstance(result, dict) and "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
@@ -65,7 +68,7 @@ async def nearby_meetings(email: str, x: float, y: float):
 async def get_meeting(meeting_id: int):
     meeting = meeting_service.get_meeting(meeting_id)
     if meeting is None:
-        raise HTTPException(status_code=404, detail="Meeting not found")
+        raise HTTPException(status_code=404, detail="Meeting not found!!!")
     return meeting
 
 
@@ -93,14 +96,16 @@ async def meeting_participants(meeting_id: int):
 
 @router.post("/{meeting_id}/end", response_model=EndMeetingResponse)
 async def end_meeting(meeting_id: int):
-    result = meeting_service.end_meeting(meeting_id)
-    if isinstance(result, dict) and "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
-    return EndMeetingResponse(
-        success=result["success"],
-        timed_out_participants=result["timed_out_participants"]
-    )
-
+    try:
+        result = meeting_service.end_meeting(meeting_id)
+        if isinstance(result, dict) and "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        return EndMeetingResponse(
+            success=result["success"],
+            timed_out_participants=result["timed_out_participants"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/{meeting_id}/messages", response_model=MessageListResponse)
 async def meeting_messages(meeting_id: int):
