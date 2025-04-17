@@ -56,8 +56,8 @@ class Database:
                     meeting_id SERIAL PRIMARY KEY,
                     title VARCHAR(255) NOT NULL,
                     description TEXT,
-                    t1 TIMESTAMP NOT NULL,
-                    t2 TIMESTAMP NOT NULL,
+                    t1 TIMESTAMP WITH TIME ZONE NOT NULL,
+                    t2 TIMESTAMP WITH TIME ZONE NOT NULL,
                     lat FLOAT NOT NULL,
                     long FLOAT NOT NULL,
                     participants TEXT NOT NULL
@@ -237,7 +237,7 @@ class Database:
 
     def get_active_meetings(self):
         """Get list of active meeting IDs"""
-        current_time = datetime.now(timezone.utc).isoformat()
+        current_time = datetime.now(timezone.utc)#.isoformat()
         print(f"Current time for active meetings check: {current_time}")
 
         # We'll extend meeting activation for 2 hours after creation
@@ -246,7 +246,8 @@ class Database:
             with self.conn.cursor() as cur:
                 cur.execute(
                     """SELECT meeting_id FROM meetings
-                       WHERE t1 <= CURRENT_TIMESTAMP AND t2 >= CURRENT_TIMESTAMP"""
+                    WHERE t1 <= %s AND t2 >= %s""",
+                    (current_time, current_time)
                 )
                 result = [row["meeting_id"] for row in cur.fetchall()]
                 print(f"PostgreSQL active meetings: {result}")
@@ -255,7 +256,8 @@ class Database:
             cursor = self.conn.cursor()
             cursor.execute(
                 """SELECT meeting_id, title, t1, t2 FROM meetings
-                WHERE t1 <= datetime('now','localtime') AND t2 >= datetime('now','localtime')"""
+                WHERE t1 <= ? AND t2 >= ?""",
+                (current_time, current_time)
             )
             rows = cursor.fetchall()
 
