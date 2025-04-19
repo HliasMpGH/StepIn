@@ -24,7 +24,7 @@ async def create_meeting(meeting: MeetingCreate):
 
         # Force refresh the active meetings list to ensure new meeting is included
         # This step will sync the DB and Redis after a new meeting is created
-        meeting_service.get_active_meetings()
+        # meeting_service.get_active_meetings()
 
         if isinstance(result, dict) and "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
