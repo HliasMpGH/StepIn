@@ -154,14 +154,12 @@ class Database:
                     (email, name, age, gender)
                 )
                 self.conn.commit()
-                return True
         else:
             with self.conn:
                 self.conn.execute(
                     "INSERT INTO users (email, name, age, gender) VALUES (?, ?, ?, ?)",
                     (email, name, age, gender)
                 )
-                return True
 
     def get_user(self, email):
         """Get user details by email"""

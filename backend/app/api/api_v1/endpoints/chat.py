@@ -12,5 +12,5 @@ chat_service = ChatService()
 async def post_message(message: MessageCreate):
     result = chat_service.post_message(message.email, message.text)
     if isinstance(result, dict) and "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
+        raise HTTPException(status_code=400, detail=f"Failed to post message: {result['error']}")
     return SuccessResponse()

@@ -10,11 +10,13 @@ user_service = UserService()
 @router.post("", response_model=SuccessResponse, responses={400: {"model": ErrorResponse}})
 async def create_user(user: UserCreate):
     try:
-        user_service.create_user(user.email, user.name, user.age, user.gender)
-        return SuccessResponse()
+        result = user_service.create_user(user.email, user.name, user.age, user.gender)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=f"Failed to create user")
 
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=400, detail=f"Failed to create user: {result['error']}")
+    return SuccessResponse()
 
 @router.get("/{email}", response_model=User, responses={404: {"model": ErrorResponse}})
 async def get_user(email: str):

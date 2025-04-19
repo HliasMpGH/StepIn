@@ -16,7 +16,7 @@ class ChatService:
         # Post message to Redis
         result = self.redis_mgr.post_message(email, text)
         if isinstance(result, dict) and "error" in result:
-            return {"error": f"Failed to post message: {result['error']}"}
+            return result # error message
 
         # If successful, also store in the database for persistence
         meeting_id = self.redis_mgr.get_user_joined_meeting(email)
