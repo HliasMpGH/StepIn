@@ -105,14 +105,14 @@ export default createStore({
         const response = await apiClient.post('/users', userData)
         if (response.data.success) {
           // After creating user, login with it
-          commit('SET_USER', { 
-            email: userData.email, 
+          commit('SET_USER', {
+            email: userData.email,
             name: userData.name,
             age: userData.age,
             gender: userData.gender
           })
-          localStorage.setItem('user', JSON.stringify({ 
-            email: userData.email, 
+          localStorage.setItem('user', JSON.stringify({
+            email: userData.email,
             name: userData.name,
             age: userData.age,
             gender: userData.gender
@@ -145,10 +145,10 @@ export default createStore({
         console.log('Creating meeting with data:', meetingData)
         const response = await apiClient.post('/meetings', meetingData)
         console.log('Meeting created, response:', response.data)
-        
+
         // Force immediate refresh of active meetings after creation
         await dispatch('getActiveMeetings', { forceRefresh: true })
-        
+
         commit('SET_LOADING', false)
         return response.data
       } catch (error) {
@@ -174,16 +174,16 @@ export default createStore({
     async getActiveMeetings({ commit }, { forceRefresh = false } = {}) {
       try {
         commit('SET_LOADING', true)
-        
+
         console.log(`Getting active meetings... (forceRefresh=${forceRefresh})`)
-        
+
         // Add a cache buster parameter for forceRefresh
         const cacheParam = forceRefresh ? `?cache=${Date.now()}` : ''
-        
+
         // Normal API flow
         const response = await apiClient.get(`/meetings/active${cacheParam}`)
         console.log('Active meetings response:', response.data)
-        
+
         // Check if meetings array exists
         if (!response.data.meetings) {
           console.log('No meetings found in response')
@@ -191,16 +191,16 @@ export default createStore({
           commit('SET_LOADING', false)
           return []
         }
-        
+
         console.log('Found meeting IDs:', response.data.meetings)
-        
+
         if (response.data.meetings.length === 0) {
           console.log('Empty meetings array, returning empty list')
           commit('SET_ACTIVE_MEETINGS', [])
           commit('SET_LOADING', false)
           return []
         }
-        
+
         // Fetch details for each meeting with a retry mechanism
         const meetings = []
         const fetchMeetingWithRetry = async (meetingId, retries = 2) => {
@@ -219,18 +219,18 @@ export default createStore({
             return null
           }
         }
-        
+
         // Fetch all meetings in parallel
-        const meetingPromises = response.data.meetings.map(meetingId => 
+        const meetingPromises = response.data.meetings.map(meetingId =>
           fetchMeetingWithRetry(meetingId)
         )
-        
+
         // Wait for all fetches to complete
         await Promise.all(meetingPromises)
-        
+
         // Filter out any null results from failed fetches
         const validMeetings = meetings.filter(meeting => meeting !== null)
-        
+
         console.log('All meetings loaded:', validMeetings)
         commit('SET_ACTIVE_MEETINGS', validMeetings)
         commit('SET_LOADING', false)
@@ -249,7 +249,7 @@ export default createStore({
           commit('SET_NEARBY_MEETINGS', [])
           return []
         }
-        
+
         commit('SET_LOADING', true)
         const response = await apiClient.get('/meetings/nearby', {
           params: {
@@ -258,14 +258,14 @@ export default createStore({
             y
           }
         })
-        
+
         // Check if meetings array exists
         if (!response.data.meetings) {
           commit('SET_NEARBY_MEETINGS', [])
           commit('SET_LOADING', false)
           return []
         }
-        
+
         // Fetch details for each meeting
         const meetings = []
         for (const meetingId of response.data.meetings) {
@@ -277,7 +277,7 @@ export default createStore({
             // Continue with other meetings if one fails
           }
         }
-        
+
         commit('SET_NEARBY_MEETINGS', meetings)
         commit('SET_LOADING', false)
         return meetings
@@ -286,7 +286,7 @@ export default createStore({
         commit('SET_ERROR', error.response?.data?.detail || error.message || 'Error getting nearby meetings')
         commit('SET_NEARBY_MEETINGS', [])
         commit('SET_LOADING', false)
-        return [] // Return empty array instead of throwing error
+        throw error // re-throw the error
       }
     },
     // Participation
@@ -295,18 +295,18 @@ export default createStore({
         if (!state.user) {
           throw new Error('User not authenticated')
         }
-        
+
         commit('SET_LOADING', true)
         const response = await apiClient.post(`/meetings/${meetingId}/join`, {
           email: state.user.email
         })
-        
+
         if (response.data.success) {
           // Get meeting details and set as joined meeting
           const meetingResponse = await apiClient.get(`/meetings/${meetingId}`)
           commit('SET_JOINED_MEETING', meetingResponse.data)
         }
-        
+
         commit('SET_LOADING', false)
         return response.data
       } catch (error) {
@@ -320,16 +320,16 @@ export default createStore({
         if (!state.user) {
           throw new Error('User not authenticated')
         }
-        
+
         commit('SET_LOADING', true)
         const response = await apiClient.post(`/meetings/${meetingId}/leave`, {
           email: state.user.email
         })
-        
+
         if (response.data.success) {
           commit('SET_JOINED_MEETING', null)
         }
-        
+
         commit('SET_LOADING', false)
         return response.data
       } catch (error) {
@@ -355,11 +355,11 @@ export default createStore({
       try {
         commit('SET_LOADING', true)
         const response = await apiClient.post(`/meetings/${meetingId}/end`)
-        
+
         if (response.data.success) {
           commit('SET_JOINED_MEETING', null)
         }
-        
+
         commit('SET_LOADING', false)
         return response.data
       } catch (error) {
@@ -374,14 +374,14 @@ export default createStore({
         if (!state.user) {
           throw new Error('User not authenticated')
         }
-        
+
         commit('SET_LOADING', true)
         const response = await apiClient.post('/chat/post', {
           email: state.user.email,
           text,
           meeting_id: meetingId
         })
-        
+
         commit('SET_LOADING', false)
         return response.data
       } catch (error) {
@@ -408,12 +408,12 @@ export default createStore({
         if (!state.user) {
           throw new Error('User not authenticated')
         }
-        
+
         commit('SET_LOADING', true)
-        const url = meetingId 
+        const url = meetingId
           ? `/users/${state.user.email}/messages?meeting_id=${meetingId}`
           : `/users/${state.user.email}/messages`
-          
+
         const response = await apiClient.get(url)
         commit('SET_USER_MESSAGES', response.data.messages)
         commit('SET_LOADING', false)

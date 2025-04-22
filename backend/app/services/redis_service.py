@@ -166,18 +166,18 @@ class RedisManager:
         user_meetings_key = f"{self.user_joined_meeting}{email}"
         if self.redis_client.get(user_meetings_key) is not None:
             print(f"{email} is already in other meeting ({self.redis_client.get(user_meetings_key)})")
-            return False
+            return {"error": "You are already joined in another meeting"}
 
         # Check if meeting is active
         if not self.redis_client.sismember(self.active_meetings_key, meeting_id):
             print(f"{meeting_id} is not active")
-            return False
+            return {"error": f"Meeting {meeting_id} is not active"}
 
         # Check if user is in participants list
         participants_key = f"{self.participants_prefix}{meeting_id}"
         if not self.redis_client.sismember(participants_key, email):
             print(f"{email} not member of {meeting_id}")
-            return False
+            return {"error": "You are not a participant of the meeting"}
 
         # Add user to joined participants
         joined_key = f"{self.joined_prefix}{meeting_id}"
@@ -188,7 +188,6 @@ class RedisManager:
 
         self.redis_client.set(user_meetings_key, meeting_id)
         print(f"all good. User joined meeting: {self.redis_client.get(user_meetings_key)}")
-        return True
 
     def leave_meeting(self, email, meeting_id):
         """User leaves a meeting"""
@@ -197,12 +196,12 @@ class RedisManager:
         user_meetings_key = f"{self.user_joined_meeting}{email}"
         if self.redis_client.get(user_meetings_key) != str(meeting_id):
             print(f"{email} is not joined in meeting {self.redis_client.get(user_meetings_key)}")
-            return False
+            return {"error": "You are not joined in the meeting"}
 
         # Check if meeting is active
         if not self.redis_client.sismember(self.active_meetings_key, meeting_id):
             print(f"{meeting_id} is not active")
-            return False
+            return {"error": f"Meeting {meeting_id} is not active"}
 
         # Remove user from joined participants
         joined_key = f"{self.joined_prefix}{meeting_id}"
@@ -213,7 +212,8 @@ class RedisManager:
         self.redis_client.delete(user_meetings_key)
         print(f"all good. User joined meeting: {self.redis_client.get(user_meetings_key)}")
 
-        return result > 0
+        if result <= 0:
+            return {"error": f"User not part of joined participants"}
 
     def get_joined_participants(self, meeting_id):
         """Get list of emails of participants who have joined the meeting"""
@@ -226,7 +226,7 @@ class RedisManager:
         # Get the meeting the user is joined in
         meeting_id = self.get_user_joined_meeting(email)
         if not meeting_id:
-            return False
+            return {"error": "User not joined in any meeting"}
 
         # Create message object
         chat_message = {
@@ -238,8 +238,6 @@ class RedisManager:
         # Add message to chat list of meeting
         chat_key = f"{self.chat_prefix}{meeting_id}"
         self.redis_client.rpush(chat_key, json.dumps(chat_message))
-
-        return True
 
     def get_meeting_messages(self, meeting_id):
         """Get all messages from a meeting chat in chronological order"""

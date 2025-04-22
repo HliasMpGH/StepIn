@@ -11,63 +11,63 @@
           <div class="p-fluid">
             <div class="field">
               <label for="email">Email</label>
-              <InputText 
-                id="email" 
-                v-model="user.email" 
-                type="email" 
-                required 
+              <InputText
+                id="email"
+                v-model="user.email"
+                type="email"
+                required
                 :class="{'p-invalid': submitted && !user.email}"
               />
               <small v-if="submitted && !user.email" class="p-error">Email is required</small>
             </div>
-            
+
             <div class="field">
               <label for="name">Full Name</label>
-              <InputText 
-                id="name" 
-                v-model="user.name" 
-                required 
+              <InputText
+                id="name"
+                v-model="user.name"
+                required
                 :class="{'p-invalid': submitted && !user.name}"
               />
               <small v-if="submitted && !user.name" class="p-error">Name is required</small>
             </div>
-            
+
             <div class="field">
               <label for="age">Age</label>
-              <InputNumber 
-                id="age" 
-                v-model="user.age" 
-                :min="15" 
+              <InputNumber
+                id="age"
+                v-model="user.age"
+                :min="15"
                 :max="120"
               />
             </div>
-            
+
             <div class="field">
               <label for="gender">Gender</label>
-              <Dropdown 
-                id="gender" 
-                v-model="user.gender" 
-                :options="genderOptions" 
-                optionLabel="label" 
+              <Dropdown
+                id="gender"
+                v-model="user.gender"
+                :options="genderOptions"
+                optionLabel="label"
                 optionValue="value"
                 placeholder="Select Gender"
               />
             </div>
-            
+
             <div class="field mt-4">
               <Message v-if="error" severity="error">{{ error }}</Message>
             </div>
-            
+
             <div class="field mt-4">
-              <Button 
-                type="submit" 
-                label="Register" 
-                icon="pi pi-user-plus" 
+              <Button
+                type="submit"
+                label="Register"
+                icon="pi pi-user-plus"
                 :loading="loading"
                 class="p-button-raised p-button-rounded"
               />
             </div>
-            
+
             <div class="field mt-2 text-center">
               <span>Already have an account? </span>
               <router-link to="/login">Login</router-link>
@@ -104,18 +104,18 @@ export default {
   methods: {
     async register() {
       this.submitted = true
-      
+
       if (!this.user.email || !this.user.name) {
         return
       }
-      
+
       try {
         this.loading = true
         this.error = ''
-        
+
         // Call API to create user
         const result = await this.$store.dispatch('createUser', this.user)
-        
+
         if (result.success) {
           this.$toast.add({
             severity: 'success',
@@ -123,12 +123,15 @@ export default {
             detail: 'Your account has been created successfully',
             life: 3000
           })
-          
+
           // Redirect to dashboard
           this.$router.push('/')
         }
       } catch (err) {
-        this.error = err.response?.data?.error || 'Error creating account. Please try again.'
+        const errorMessage = err.response?.data?.detail ||
+                                    err.message || 'Error creating account. Please try again.';
+
+        this.error = errorMessage
       } finally {
         this.loading = false
       }

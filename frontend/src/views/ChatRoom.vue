@@ -272,10 +272,13 @@ export default {
         newMessage.value = '';
         await refreshMessages();
       } catch (error) {
+        const errorMessage = error.response?.data?.detail ||
+                            error.message || 'Failed to send message';
+
         toast.add({
           severity: 'error',
           summary: 'Error',
-          detail: error.message || 'Failed to send message',
+          detail: errorMessage,
           life: 3000
         });
       } finally {
@@ -305,10 +308,13 @@ export default {
         leaveDialogVisible.value = false;
         router.push('/');
       } catch (error) {
+        const errorMessage = error.response?.data?.detail ||
+                            error.message || 'Failed to leave meeting';
+
         toast.add({
           severity: 'error',
           summary: 'Error',
-          detail: error.message || 'Failed to leave meeting',
+          detail: errorMessage,
           life: 3000
         });
       } finally {

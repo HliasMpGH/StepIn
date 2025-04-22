@@ -10,6 +10,13 @@ class MeetingService:
 
     def create_meeting(self, title, description, t1, t2, lat, long, participants):
         """Create a new meeting"""
+
+        # Check if the passed meeting attributes are valid
+        errors = self.get_attribute_errors(title, t1, t2, lat, long, participants)
+        if errors:
+            # invalid meeting attributes
+            return {"error": ". ".join(errors)}
+
         # Convert datetime strings to datetime objects if needed
         if isinstance(t1, str):
             t1_datetime = datetime.fromisoformat(t1.replace('Z', '+00:00'))
@@ -24,29 +31,49 @@ class MeetingService:
         # Add to database
         meeting_id = self.db.add_meeting(title, description, t1_datetime, t2_datetime, lat, long, participants)
 
-        # Also activate in Redis for real-time operations
-        if meeting_id:
-            # Get current time in UTC
-            now = datetime.now(timezone.utc)
-            print(f"Current time: {now}, Meeting end time: {t2_datetime}")
+        if not meeting_id:
+            return {"error": "Could not load meeting in memory, after persistence"}
 
-            # Check if this is a current meeting
-            if t1_datetime < now < t2_datetime:
-                # Activate in Redis
-                result = self.redis_mgr.activate_meeting(
-                    meeting_id,
-                    title,
-                    description,
-                    lat,
-                    long,
-                    participants,
-                    t2_datetime
-                )
-                print(f"Meeting {meeting_id} created and activated in Redis: {result}")
-            else:
-                print(f"Meeting {meeting_id} created but not activated in Redis")
+        # Also activate in Redis for real-time operations
+        # Get current time in UTC
+        now = datetime.now(timezone.utc)
+        print(f"Current time: {now}, Meeting end time: {t2_datetime}")
+
+        # Check if this is a current meeting
+        if t1_datetime < now < t2_datetime:
+            # Activate in Redis
+            result = self.redis_mgr.activate_meeting(
+                meeting_id,
+                title,
+                description,
+                lat,
+                long,
+                participants,
+                t2_datetime
+            )
+            print(f"Meeting {meeting_id} created and activated in Redis: {result}")
+        else:
+            print(f"Meeting {meeting_id} created but not activated in Redis")
 
         return meeting_id
+
+    def get_attribute_errors(self, title, t1, t2, lat, long, participants):
+        """Collect and return all error messages of the given user inputs"""
+        errors_messages = []
+
+        if not isinstance(title, str) or not title.strip():
+            errors_messages.append("Please provide a valid title")
+
+        if not t1 or not t2:
+            errors_messages.append("Please provide a valid time range")
+
+        if not isinstance(lat, float) or not isinstance(long, float):
+            errors_messages.append("Please provide a valid location")
+
+        if not isinstance(participants, str) or not participants.strip():
+            errors_messages.append("Please provide a valid list of participants")
+
+        return errors_messages
 
     def get_meeting(self, meeting_id):
         """Get meeting details by ID"""
@@ -71,14 +98,18 @@ class MeetingService:
         if not user:
             return {"error": "User not found"}
 
+        # Check if meeting exists
+        meeting = self.db.get_meeting(meeting_id)
+        if not meeting:
+            return {"error": "Meeting not found"}
+
         # Try to join meeting in Redis
         result = self.redis_mgr.join_meeting(email, meeting_id)
-        if result:
-            # Log the action
-            self.db.log_action(email, meeting_id, JOIN_MEETING)
-            return {"success": True}
-        else:
-            return {"error": "Failed to join meeting"}
+        if isinstance(result, dict) and "error" in result:
+            return result # error message
+
+        # Log the action
+        self.db.log_action(email, meeting_id, JOIN_MEETING)
 
     def leave_meeting(self, email, meeting_id):
         """User leaves a meeting"""
@@ -87,17 +118,26 @@ class MeetingService:
         if not user:
             return {"error": "User not found"}
 
+        # Check if meeting exists
+        meeting = self.db.get_meeting(meeting_id)
+        if not meeting:
+            return {"error": "Meeting not found"}
+
         # Try to leave meeting in Redis
         result = self.redis_mgr.leave_meeting(email, meeting_id)
-        if result:
-            # Log the action
-            self.db.log_action(email, meeting_id, LEAVE_MEETING)
-            return {"success": True}
-        else:
-            return {"error": "Failed to leave meeting"}
+        if isinstance(result, dict) and "error" in result:
+            return result # error message
+
+        # Log the action
+        self.db.log_action(email, meeting_id, LEAVE_MEETING)
 
     def get_meeting_participants(self, meeting_id):
         """Get participants who have joined a meeting"""
+        # Check if the meeting exists
+        meeting = self.db.get_meeting(meeting_id)
+        if not meeting:
+            return {"error": "Could not find meeting"}
+
         return self.redis_mgr.get_joined_participants(meeting_id)
 
     def get_active_meetings(self):
@@ -123,19 +163,19 @@ class MeetingService:
     def _activate_meeting_in_redis(self, meeting_id):
         """Activate a meeting in Redis from the database"""
         meeting = self.db.get_meeting(meeting_id)
-        if meeting:
-            # Activate meeting in Redis
-            self.redis_mgr.activate_meeting(
-                meeting_id,
-                meeting["title"],
-                meeting["description"],
-                meeting["lat"],
-                meeting["long"],
-                meeting["participants"],
-                meeting["t2"]
-            )
-            return True
-        return False
+        if not meeting:
+            return {"error": "Could not find meeting"}
+
+        # Activate meeting in Redis
+        self.redis_mgr.activate_meeting(
+            meeting_id,
+            meeting["title"],
+            meeting["description"],
+            meeting["lat"],
+            meeting["long"],
+            meeting["participants"],
+            meeting["t2"]
+        )
 
     def sync_meetings(self):
         """Force a sync to make sure Redis and DB are in sync"""
@@ -158,16 +198,20 @@ class MeetingService:
         if meetings_to_add:
             print(f"Syncing {len(meetings_to_add)} meetings from DB to Redis: {meetings_to_add}")
             for meeting_id in meetings_to_add:
-                success = self._activate_meeting_in_redis(meeting_id)
-                print(f"Activated meeting {meeting_id} in Redis: {success}")
+                result = self._activate_meeting_in_redis(meeting_id)
+                if isinstance(result, dict) and "error" in result:
+                    raise ValueError(f"Error while activating meeting: {result['error']}")
+                print(f"Activated meeting {meeting_id} in Redis")
 
         # also do a sync to remove inactive meetings from redis
         meetings_to_remove = redis_meeting_ids - db_meeting_ids
         if meetings_to_remove:
             print(f"Removing {len(meetings_to_remove)} meetings from Redis: {meetings_to_remove}")
             for meeting_id in meetings_to_remove:
-                success = self.end_meeting(meeting_id)
-                print(f"Deactivated meeting {meeting_id} in Redis: {success}")
+                result = self.end_meeting(meeting_id)
+                if isinstance(result, dict) and "error" in result:
+                    raise ValueError(f"Error while deactivating meeting: {result['error']}")
+                print(f"Deactivated meeting {meeting_id} in Redis: {result}")
 
     def end_meeting(self, meeting_id):
         """End a meeting and log timeouts for remaining participants"""
@@ -183,11 +227,13 @@ class MeetingService:
         for email in remaining_participants:
             self.db.log_action(email, meeting_id, TIME_OUT)
 
-        return {
-            "success": True,
-            "timed_out_participants": remaining_participants
-        }
+        return remaining_participants
 
     def get_meeting_messages(self, meeting_id):
         """Get all messages from a meeting chat"""
+        # Check if the meeting exists
+        meeting = self.db.get_meeting(meeting_id)
+        if not meeting:
+            return {"error": "Could not find meeting"}
+
         return self.redis_mgr.get_meeting_messages(meeting_id)

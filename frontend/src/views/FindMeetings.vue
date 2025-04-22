@@ -42,7 +42,7 @@
             <div class="search-actions">
               <Button
                 label="Find Nearby Meetings"
-                icon="pi pi-search" 
+                icon="pi pi-search"
                 class="p-button-raised"
                 :loading="loading"
                 @click="findNearbyMeetings"
@@ -176,7 +176,7 @@ export default {
     },
     initMap() {
       if (this.map) return;
-      
+
       try {
         // Get the map container element
         const mapContainer = document.getElementById('map');
@@ -184,7 +184,7 @@ export default {
           console.error("Map container not found");
           return;
         }
-        
+
         // Create map
         this.map = L.map('map', {
           // Add animation false to prevent potential issues
@@ -225,7 +225,7 @@ export default {
           detail: 'Your browser does not support geolocation. Please click on the map to set your location.',
           life: 5000
         });
-        
+
         // Set default location to Athens, Greece
         if (this.map) {
           try {
@@ -240,7 +240,7 @@ export default {
         }
         return;
       }
-      
+
       navigator.geolocation.getCurrentPosition(
         position => {
           try {
@@ -298,7 +298,7 @@ export default {
     updateMarker() {
       // Ensure map is initialized
       if (!this.map) return;
-      
+
       // Remove existing marker if any
       if (this.userMarker) {
         try {
@@ -339,7 +339,7 @@ export default {
     updateMeetingMarkers() {
       // Ensure map is initialized
       if (!this.map) return;
-      
+
       try {
         // Clear existing meeting markers safely
         this.meetingMarkers.forEach(marker => {
@@ -443,10 +443,13 @@ export default {
         }
       } catch (error) {
         this.loading = false
+        const errorMessage = error.response?.data?.detail ||
+                            error.message || 'Failed to find nearby meetings';
+
         this.$toast.add({
           severity: 'error',
           summary: 'Error',
-          detail: error.message || 'Failed to find nearby meetings',
+          detail: errorMessage,
           life: 3000
         })
       }
@@ -467,10 +470,13 @@ export default {
         // Navigate to dashboard
         this.$router.push('/')
       } catch (error) {
+        const errorMessage = error.response?.data?.detail ||
+                            error.message || 'Failed to join meeting';
+
         this.$toast.add({
           severity: 'error',
           summary: 'Error',
-          detail: error.message || 'Failed to join meeting',
+          detail: errorMessage,
           life: 3000
         })
       }
@@ -493,7 +499,7 @@ export default {
           console.warn("Error removing user marker during cleanup:", e);
         }
       }
-      
+
       // Clean up meeting markers
       if (this.meetingMarkers && this.meetingMarkers.length > 0) {
         for (const marker of this.meetingMarkers) {
@@ -507,7 +513,7 @@ export default {
         }
         this.meetingMarkers = [];
       }
-      
+
       // Finally remove map instance
       if (this.map) {
         this.map.remove();
