@@ -443,10 +443,13 @@ export default {
         }
       } catch (error) {
         this.loading = false
+        const errorMessage = error.response?.data?.detail ||
+                            error.message || 'Failed to find nearby meetings';
+
         this.$toast.add({
           severity: 'error',
           summary: 'Error',
-          detail: error.message || 'Failed to find nearby meetings',
+          detail: errorMessage,
           life: 3000
         })
       }
@@ -467,10 +470,13 @@ export default {
         // Navigate to dashboard
         this.$router.push('/')
       } catch (error) {
+        const errorMessage = error.response?.data?.detail ||
+                            error.message || 'Failed to join meeting';
+
         this.$toast.add({
           severity: 'error',
           summary: 'Error',
-          detail: error.message || 'Failed to join meeting',
+          detail: errorMessage,
           life: 3000
         })
       }
