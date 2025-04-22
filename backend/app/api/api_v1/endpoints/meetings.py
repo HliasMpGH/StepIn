@@ -26,7 +26,7 @@ async def create_meeting(meeting: MeetingCreate):
         # This step will sync the DB and Redis after a new meeting is created
         # meeting_service.get_active_meetings()
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Failed to create meeting")
+        raise HTTPException(status_code=500, detail="Failed to create meeting")
 
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=400, detail=f"Error while creating meeting: {result['error']}")
@@ -43,7 +43,7 @@ async def active_meetings():
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Failed to retrieve active meetings")
+        raise HTTPException(status_code=500, detail="Failed to retrieve active meetings")
 
 
 @router.get("/nearby", response_model=MeetingListResponse)
@@ -60,7 +60,7 @@ async def nearby_meetings(email: str, x: float, y: float):
             detail="Failed to retrieve nearby meetings: Invalid latitude or longitude values"
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Failed to retrieve nearby meetings")
+        raise HTTPException(status_code=500, detail="Failed to retrieve nearby meetings")
 
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(
@@ -74,7 +74,11 @@ async def nearby_meetings(email: str, x: float, y: float):
 
 @router.get("/{meeting_id}", response_model=Meeting, responses={404: {"model": ErrorResponse}})
 async def get_meeting(meeting_id: int):
-    meeting = meeting_service.get_meeting(meeting_id)
+    try:
+        meeting = meeting_service.get_meeting(meeting_id)
+    except:
+        raise HTTPException(status_code=500, detail="Failed to retrieve meeting")
+
     if meeting is None:
         raise HTTPException(status_code=404, detail="Failed to retrieve meeting: Meeting not found")
     return meeting
@@ -82,7 +86,11 @@ async def get_meeting(meeting_id: int):
 
 @router.post("/{meeting_id}/join", response_model=SuccessResponse, responses={400: {"model": ErrorResponse}})
 async def join_meeting(meeting_id: int, request: JoinLeaveRequest):
-    result = meeting_service.join_meeting(request.email, meeting_id)
+    try:
+        result = meeting_service.join_meeting(request.email, meeting_id)
+    except:
+        raise HTTPException(status_code=500, detail="Failed to join meeting")
+
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=400, detail=f"Failed to join meeting: {result['error']}")
     return SuccessResponse()
@@ -90,7 +98,11 @@ async def join_meeting(meeting_id: int, request: JoinLeaveRequest):
 
 @router.post("/{meeting_id}/leave", response_model=SuccessResponse, responses={400: {"model": ErrorResponse}})
 async def leave_meeting(meeting_id: int, request: JoinLeaveRequest):
-    result = meeting_service.leave_meeting(request.email, meeting_id)
+    try:
+        result = meeting_service.leave_meeting(request.email, meeting_id)
+    except:
+        raise HTTPException(status_code=500, detail="Failed to leave meeting")
+
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=400, detail=f"Failed to leave meeting: {result['error']}")
     return SuccessResponse()
@@ -98,7 +110,14 @@ async def leave_meeting(meeting_id: int, request: JoinLeaveRequest):
 
 @router.get("/{meeting_id}/participants", response_model=ParticipantListResponse)
 async def meeting_participants(meeting_id: int):
-    result = meeting_service.get_meeting_participants(meeting_id)
+    try:
+        result = meeting_service.get_meeting_participants(meeting_id)
+    except:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve meeting joined participants"
+        )
+
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(
             status_code=400,
@@ -112,7 +131,7 @@ async def end_meeting(meeting_id: int):
     try:
         result = meeting_service.end_meeting(meeting_id)
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Failed to end meeting")
+        raise HTTPException(status_code=500, detail="Failed to end meeting")
 
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(
@@ -127,7 +146,14 @@ async def end_meeting(meeting_id: int):
 
 @router.get("/{meeting_id}/messages", response_model=MessageListResponse)
 async def meeting_messages(meeting_id: int):
-    result = meeting_service.get_meeting_messages(meeting_id)
+    try:
+        result = meeting_service.get_meeting_messages(meeting_id)
+    except:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve messages of meeting"
+        )
+
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(
             status_code=400,

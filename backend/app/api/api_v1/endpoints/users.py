@@ -12,7 +12,7 @@ async def create_user(user: UserCreate):
     try:
         result = user_service.create_user(user.email, user.name, user.age, user.gender)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to create user")
+        raise HTTPException(status_code=500, detail=f"Failed to create user")
 
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=400, detail=f"Failed to create user: {result['error']}")
