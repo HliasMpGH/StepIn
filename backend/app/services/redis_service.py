@@ -27,7 +27,7 @@ class RedisManager:
         self.meeting_positions_key = "meeting_positions" # Key for meetings geospatials
         self.participants_prefix = "participants:"  # Prefix for participants set
         self.joined_prefix = "joined:"  # Prefix for joined participants set
-        self.chat_prefix = "chat:"  # Prefix for chat list
+        self.chat_prefix = "chat:"  # Prefix for chat list of meetings
         self.user_joined_meeting = "user_joined_meeting:"  # Prefix for user's joined meeting
         self.user_participate_meetings = "user_participate_meetings:"  # Prefix for all meetings the user is a participant
 
@@ -237,7 +237,10 @@ class RedisManager:
 
         # Add message to chat list of meeting
         chat_key = f"{self.chat_prefix}{meeting_id}"
-        self.redis_client.rpush(chat_key, json.dumps(chat_message))
+        position = self.redis_client.rpush(chat_key, json.dumps(chat_message)) - 1
+
+        user_chat_key = f"{chat_key}:{email}"
+        self.redis_client.rpush(user_chat_key, position)
 
     def get_meeting_messages(self, meeting_id):
         """Get all messages from a meeting chat in chronological order"""
@@ -254,8 +257,7 @@ class RedisManager:
                 return []
 
         # check if meeting is active
-        active_meetings_key = f"{self.active_meetings_key}{meeting_id}"
-        if not self.redis_client.sismember(active_meetings_key, meeting_id):
+        if not self.redis_client.sismember(self.active_meetings_key, meeting_id):
             return [] # inactive meeting
 
         # check if user is a participant of the meeting
@@ -263,15 +265,20 @@ class RedisManager:
         if not self.redis_client.sismember(participants_key, email):
             return [] # user is not a participant of the meeting
 
-        chat_key = f"{self.chat_prefix}{meeting_id}"
-        all_messages = self.redis_client.lrange(chat_key, 0, -1)
+        meeting_chat_key = f"{self.chat_prefix}{meeting_id}"
 
-        # Filter messages by email
-        user_messages = []
-        for msg_str in all_messages:
-            msg = json.loads(msg_str)
-            if msg["email"] == email:
-                user_messages.append(msg)
+        # get the messages positions of the user in the meeting
+        user_chat_key = f"{meeting_chat_key}:{email}"
+        user_messages_positions = self.redis_client.lrange(user_chat_key, 0, -1)
+
+        print(f"msgs positions: {user_messages_positions}")
+
+        # get the final messages from the indices
+        user_messages = [
+            # parse each messages into a json
+            json.loads(self.redis_client.lindex(meeting_chat_key, msg_position))
+            for msg_position in user_messages_positions
+        ]
 
         return user_messages
 

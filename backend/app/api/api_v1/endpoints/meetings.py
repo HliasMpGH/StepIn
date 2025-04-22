@@ -160,3 +160,21 @@ async def meeting_messages(meeting_id: int):
             detail=f"Failed to retrieve messages of meeting: {result['error']}"
         )
     return MessageListResponse(messages=result)
+
+
+@router.get("/{meeting_id}/messages/{email}", response_model=MessageListResponse)
+async def user_messages(meeting_id: int, email: str):
+    try:
+        result = meeting_service.get_user_messages(email, meeting_id)
+    except:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve messages of user"
+        )
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to retrieve messages of user: {result['error']}"
+        )
+    return MessageListResponse(messages=result)

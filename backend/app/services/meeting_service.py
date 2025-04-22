@@ -237,3 +237,18 @@ class MeetingService:
             return {"error": "Could not find meeting"}
 
         return self.redis_mgr.get_meeting_messages(meeting_id)
+
+    def get_user_messages(self, email, meeting_id=None):
+        """Get all messages posted by a user"""
+        # Check if the meeting exists
+        if meeting_id:
+            meeting = self.db.get_meeting(meeting_id)
+            if not meeting:
+                return {"error": "Could not find meeting"}
+
+        # Check if user exists
+        user = self.db.get_user(email)
+        if not user:
+            return {"error": "User not found"}
+
+        return self.redis_mgr.get_user_meeting_messages(email, meeting_id)

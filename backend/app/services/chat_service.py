@@ -25,13 +25,3 @@ class ChatService:
             self.db.save_chat_message(meeting_id, email, text)
         else:
             print(f"didnt save message '{text}' in rdb. Cant find user joined meeting.")
-
-
-    def get_user_messages(self, email, meeting_id=None):
-        """Get all messages posted by a user"""
-        # Check if user exists
-        user = self.db.get_user(email)
-        if not user:
-            return {"error": "User not found"}
-
-        return self.redis_mgr.get_user_meeting_messages(email, meeting_id)
