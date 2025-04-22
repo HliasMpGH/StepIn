@@ -20,7 +20,11 @@ async def create_user(user: UserCreate):
 
 @router.get("/{email}", response_model=User, responses={404: {"model": ErrorResponse}})
 async def get_user(email: str):
-    user = user_service.get_user(email)
+    try:
+        user = user_service.get_user(email)
+    except:
+        raise HTTPException(status_code=500, detail="Failed to login")
+
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user

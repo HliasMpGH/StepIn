@@ -72,25 +72,25 @@ export default {
       try {
         const response = await this.$store.dispatch('getUser', this.email)
 
-        if (response) {
-          // User exists, proceed with login
-          await this.$store.dispatch('login', response)
+        // User exists, proceed with login
+        await this.$store.dispatch('login', response)
 
-          // Redirect after login
-          const redirectPath = this.$route.query.redirect || '/'
-          this.$router.push(redirectPath)
+        // Redirect after login
+        const redirectPath = this.$route.query.redirect || '/'
+        this.$router.push(redirectPath)
 
-          this.$toast.add({
-            severity: 'success',
-            summary: 'Welcome back!',
-            detail: `You are now logged in as ${response.name}`,
-            life: 3000
-          })
-        } else {
-          this.error = 'User not found. Please register first.'
-        }
+        this.$toast.add({
+          severity: 'success',
+          summary: 'Welcome back!',
+          detail: `You are now logged in as ${response.name}`,
+          life: 3000
+        })
       } catch (err) {
-        this.error = err.response?.data?.error || 'Error logging in. Please try again.'
+        // user does not exist or internal error
+        const errorMessage = err.response?.data?.detail ||
+                            err.message || 'Error logging in.';
+
+        this.error = errorMessage
       } finally {
         this.loading = false
       }
