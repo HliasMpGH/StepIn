@@ -273,3 +273,30 @@ class MeetingService:
             return result  # Return error message
 
         return result  # Return True for success or None for not found
+
+    def get_meetings_by_user(self, email: str):
+        """
+        Retrieve all meetings where the given email is listed as a participant.
+        """
+        # Query DB for meetings matching the user
+        meetings = self.db.get_meetings_by_user(email)
+        return meetings or []
+
+    # Modify delete_meeting signature to enforce creator check:
+    def delete_meeting(self, meeting_id: int, email: str):
+        """
+        Delete a meeting only if the given email is among its participants (assumed creator).
+        """
+        # Fetch meeting
+        meeting = self.db.get_meeting(meeting_id)
+        if not meeting:
+            return None
+        # Ensure user is creator/participant
+        if email not in meeting.get("participants", ""):
+            return {"error": "Not authorized to delete this meeting"}
+        # Deactivate in Redis if active
+        if self.redis_mgr.redis_client.sismember(self.redis_mgr.active_meetings_key, str(meeting_id)):
+            self.redis_mgr.deactivate_meeting(meeting_id)
+        # Delete in DB
+        result = self.db.delete_meeting(meeting_id)
+        return result

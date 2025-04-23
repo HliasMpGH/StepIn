@@ -47,6 +47,43 @@ async def delete_meeting(meeting_id: int):
 
     return SuccessResponse()
 
+@router.get("/{email}/meetings", response_model=MeetingListResponse)
+async def get_user_meetings(email: str):
+    """
+    Retrieve all meetings created by a specific user.
+    """
+    try:
+        meetings = meeting_service.get_meetings_by_user(email)
+        if meetings is None:
+            meetings = []
+        return MeetingListResponse(meetings=meetings)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to retrieve user meetings")
+
+@router.delete("/meetings/{meeting_id}", response_model=MeetingListResponse)
+async def delete_user_meeting(meeting_id: int, email: str):
+    """
+    Delete a meeting created by the user and return the updated list.
+    """
+    try:
+        # Ensure the user is the creator of the meeting
+        result = meeting_service.delete_meeting(meeting_id, email)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to delete meeting")
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=400, detail=f"Failed to delete meeting: {result['error']}")
+
+    # After deletion, return the updated list
+    try:
+        meetings = meeting_service.get_meetings_by_user(email)
+        if meetings is None:
+            meetings = []
+    except Exception:
+        meetings = []
+
+    return MeetingListResponse(meetings=meetings)
+
 @router.get("/active", response_model=MeetingListResponse)
 async def active_meetings():
     try:

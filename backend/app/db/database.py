@@ -227,7 +227,7 @@ class Database:
                     (title, description, t1, t2, lat, long, participants)
                 )
                 return cursor.lastrowid
-            
+
     def delete_meeting(self, meeting_id):
         """Delete a meeting from the database"""
         # First check if the meeting exists
@@ -248,6 +248,42 @@ class Database:
         except Exception as e:
             print(f"Error deleting meeting: {e}")
         return {"error": f"Database error: {str(e)}"}
+
+    def get_meetings_by_user(self, email: str):
+        """
+        Return all meetings where participants column contains the email.
+        """
+        if self.use_postgres:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    "SELECT meeting_id, title, description, t1, t2, lat, long, participants"
+                    " FROM meetings"
+                    " WHERE participants LIKE %s",
+                    (f"%{email}%",)
+                )
+                return [dict(row) for row in cur.fetchall()]
+        else:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "SELECT meeting_id, title, description, t1, t2, lat, long, participants"
+                " FROM meetings"
+                " WHERE participants LIKE ?",
+                (f"%{email}%",)
+            )
+            rows = cursor.fetchall()
+            return [
+                {
+                    "meeting_id": r["meeting_id"],
+                    "title": r["title"],
+                    "description": r["description"],
+                    "t1": r["t1"],
+                    "t2": r["t2"],
+                    "lat": r["lat"],
+                    "long": r["long"],
+                    "participants": r["participants"]
+                }
+                for r in rows
+            ]
 
     def get_meeting(self, meeting_id):
         """Get meeting details by ID"""
