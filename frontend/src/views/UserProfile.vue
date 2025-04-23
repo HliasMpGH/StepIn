@@ -1,19 +1,19 @@
 <template>
   <div class="profile-page">
     <h1 class="profile-title">My Profile</h1>
-    
+
     <div v-if="loading" class="loading-container">
       <ProgressSpinner />
     </div>
-    
+
     <div v-else class="profile-layout">
       <div class="profile-main">
         <div class="profile-avatar">
-          <Avatar 
-            :label="getInitials()" 
-            size="xlarge" 
-            shape="circle" 
-            :style="{ backgroundColor: getAvatarColor() }" 
+          <Avatar
+            :label="getInitials()"
+            size="xlarge"
+            shape="circle"
+            :style="{ backgroundColor: getAvatarColor() }"
           />
         </div>
 
@@ -22,90 +22,127 @@
             <div class="info-label">Email</div>
             <div class="info-value">{{ user.email }}</div>
           </div>
-          
+
           <div class="info-row">
             <div class="info-label">Name</div>
             <div class="info-value">{{ user.name }}</div>
           </div>
-          
+
           <div class="info-row">
             <div class="info-label">Age</div>
             <div class="info-value">{{ user.age || 'Not specified' }}</div>
           </div>
-          
+
           <div class="info-row">
             <div class="info-label">Gender</div>
             <div class="info-value">{{ formatGender(user.gender) }}</div>
           </div>
         </div>
       </div>
-      
+
       <div class="profile-actions">
-        <Button 
-          label="Edit Profile" 
-          icon="pi pi-user-edit" 
-          @click="editProfile" 
+        <Button
+          label="Edit Profile"
+          icon="pi pi-user-edit"
+          @click="editProfile"
           class="p-button-primary"
         />
-        
-        <Button 
-          label="Logout" 
-          icon="pi pi-sign-out" 
-          @click="logout" 
+
+        <Button
+          label="Logout"
+          icon="pi pi-sign-out"
+          @click="logout"
           class="p-button-danger p-button-outlined"
+        />
+
+        <Button
+          label="Delete Account"
+          icon="pi pi-trash"
+          @click="confirmDeleteAccount"
+          class="p-button-danger"
         />
       </div>
     </div>
   </div>
 
-    <Dialog
-      v-model:visible="editDialogVisible"
-      modal
-      header="Edit Profile"
-      :style="{ width: '450px' }"
-      :closable="false"
-    >
-      <div class="edit-form">
-        <div class="p-field">
-          <label for="edit-name">Name</label>
-          <InputText id="edit-name" v-model="editForm.name" class="p-inputtext-lg" />
-        </div>
-
-        <div class="p-field">
-          <label for="edit-age">Age</label>
-          <InputNumber id="edit-age" v-model="editForm.age" :min="15" :max="120" class="p-inputtext-lg" />
-        </div>
-
-        <div class="p-field">
-          <label for="edit-gender">Gender</label>
-          <Dropdown
-            id="edit-gender"
-            v-model="editForm.gender"
-            :options="genderOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Select Gender"
-            class="p-inputtext-lg w-full"
-          />
-        </div>
+  <!-- Edit Profile Dialog -->
+  <Dialog
+    v-model:visible="editDialogVisible"
+    modal
+    header="Edit Profile"
+    :style="{ width: '450px' }"
+    :closable="false"
+  >
+    <div class="edit-form">
+      <div class="p-field">
+        <label for="edit-name">Name</label>
+        <InputText id="edit-name" v-model="editForm.name" class="p-inputtext-lg" />
       </div>
 
-      <template #footer>
-        <Button
-          label="Cancel"
-          icon="pi pi-times"
-          @click="editDialogVisible = false"
-          class="p-button-text"
+      <div class="p-field">
+        <label for="edit-age">Age</label>
+        <InputNumber id="edit-age" v-model="editForm.age" :min="15" :max="120" class="p-inputtext-lg" />
+      </div>
+
+      <div class="p-field">
+        <label for="edit-gender">Gender</label>
+        <Dropdown
+          id="edit-gender"
+          v-model="editForm.gender"
+          :options="genderOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select Gender"
+          class="p-inputtext-lg w-full"
         />
-        <Button
-          label="Save"
-          icon="pi pi-check"
-          @click="saveProfile"
-          :loading="saving"
-          class="p-button-success"
-        />
-      </template>
-    </Dialog>
+      </div>
+    </div>
+
+    <template #footer>
+      <Button
+        label="Cancel"
+        icon="pi pi-times"
+        @click="editDialogVisible = false"
+        class="p-button-text"
+      />
+      <Button
+        label="Save"
+        icon="pi pi-check"
+        @click="saveProfile"
+        :loading="saving"
+        class="p-button-success"
+      />
+    </template>
+  </Dialog>
+
+  <!-- Confirm Delete Account Dialog -->
+  <Dialog
+    v-model:visible="deleteDialogVisible"
+    modal
+    header="Delete Account"
+    :style="{ width: '450px' }"
+  >
+    <div class="delete-confirmation">
+      <i class="pi pi-exclamation-triangle" style="font-size: 2rem; color: var(--red-500);"></i>
+      <p>Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.</p>
+    </div>
+
+    <template #footer>
+      <Button
+        label="Cancel"
+        icon="pi pi-times"
+        @click="deleteDialogVisible = false"
+        class="p-button-text"
+      />
+      <Button
+        label="Delete My Account"
+        icon="pi pi-trash"
+        @click="deleteAccount"
+        :loading="deleting"
+        class="p-button-danger"
+      />
+    </template>
+  </Dialog>
 </template>
 
 <script>
@@ -113,6 +150,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import axios from 'axios';
 
 export default {
   name: 'UserProfile',
@@ -131,6 +169,10 @@ export default {
       gender: null
     });
     const saving = ref(false);
+
+    // Delete account
+    const deleteDialogVisible = ref(false);
+    const deleting = ref(false);
 
     const genderOptions = [
       { label: 'Male', value: 'male' },
@@ -171,7 +213,6 @@ export default {
         setTimeout(resolve, 800);
       });
     };
-
 
     const getInitials = () => {
       if (!user.value.name) return '??';
@@ -216,50 +257,155 @@ export default {
     };
 
     const saveProfile = async () => {
-      if (!editForm.value.name) {
+  if (!editForm.value.name) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Name is required',
+      life: 3000
+    });
+    return;
+  }
+
+  saving.value = true;
+
+  try {
+    // Prepare updated user data
+    const updatedUser = {
+      ...user.value,
+      name: editForm.value.name,
+      age: editForm.value.age,
+      gender: editForm.value.gender
+    };
+
+    // Using the email to identify the user to update
+    const email = encodeURIComponent(user.value.email);
+    await axios.put(`/api/users/${email}`, {
+      name: editForm.value.name,
+      age: editForm.value.age,
+      gender: editForm.value.gender
+    });
+
+    // Update user in localStorage
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+
+    // Update user in store
+    store.commit('SET_USER', updatedUser);
+
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Profile updated successfully',
+      life: 3000
+    });
+
+    editDialogVisible.value = false;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+
+    // Handle different error scenarios
+    if (error.response) {
+      const status = error.response.status;
+
+      if (status === 404) {
         toast.add({
-          severity: 'warn',
-          summary: 'Warning',
-          detail: 'Name is required',
+          severity: 'error',
+          summary: 'Error',
+          detail: 'User not found',
           life: 3000
         });
-        return;
-      }
-
-      saving.value = true;
-
-      try {
-        // Update user in store (in a real app this would be an API call)
-        const updatedUser = {
-          ...user.value,
-          name: editForm.value.name,
-          age: editForm.value.age,
-          gender: editForm.value.gender
-        };
-
-        // Update user in localStorage
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-
-        // Update user in store
-        store.commit('SET_USER', updatedUser);
-
+      } else if (status === 400) {
         toast.add({
-          severity: 'success',
-          summary: 'Success',
-          detail: 'Profile updated successfully',
+          severity: 'error',
+          summary: 'Error',
+          detail: error.response.data?.detail || 'Invalid profile data',
           life: 3000
         });
-
-        editDialogVisible.value = false;
-      } catch (error) {
+      } else {
         toast.add({
           severity: 'error',
           summary: 'Error',
           detail: 'Failed to update profile',
           life: 3000
         });
+      }
+    } else {
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to update profile. Please try again later.',
+        life: 3000
+      });
+    }
+  } finally {
+    saving.value = false;
+  }
+};
+
+    const confirmDeleteAccount = () => {
+      deleteDialogVisible.value = true;
+    };
+
+    const deleteAccount = async () => {
+      deleting.value = true;
+
+      try {
+        // Use the email from the current user to identify which account to delete
+        const email = encodeURIComponent(user.value.email);
+        await axios.delete(`/api/users/${email}`);
+
+        // If successful, logout the user
+        store.dispatch('logout');
+
+        toast.add({
+          severity: 'info',
+          summary: 'Account Deleted',
+          detail: 'Your account has been permanently deleted',
+          life: 3000
+        });
+
+        // Redirect to home or login page
+        router.push('/login');
+      } catch (error) {
+        console.error('Error deleting account:', error);
+
+        // Handle different error scenarios
+        if (error.response) {
+          const status = error.response.status;
+
+          if (status === 404) {
+            toast.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'User account not found',
+              life: 3000
+            });
+          } else if (status === 400) {
+            toast.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: error.response.data?.detail || 'Failed to delete account',
+              life: 3000
+            });
+          } else {
+            toast.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'An error occurred while deleting your account',
+              life: 3000
+            });
+          }
+        } else {
+          toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to delete account. Please try again later.',
+            life: 3000
+          });
+        }
       } finally {
-        saving.value = false;
+        deleting.value = false;
+        deleteDialogVisible.value = false;
       }
     };
 
@@ -281,12 +427,16 @@ export default {
       editForm,
       genderOptions,
       saving,
+      deleteDialogVisible,
+      deleting,
       getInitials,
       getAvatarColor,
       formatGender,
       editProfile,
       saveProfile,
-      logout
+      logout,
+      confirmDeleteAccount,
+      deleteAccount
     };
   }
 };
@@ -379,11 +529,25 @@ export default {
   padding: 0.5rem 1.5rem;
 }
 
-.edit-form {
+.edit-form, .delete-confirmation {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   padding: 1rem 0;
+}
+
+.delete-confirmation {
+  text-align: center;
+}
+
+.delete-confirmation i {
+  margin-bottom: 1rem;
+}
+
+.delete-confirmation p {
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--text-color-secondary);
 }
 
 .p-field {
