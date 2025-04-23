@@ -193,106 +193,21 @@ export default {
       loading.value = true;
       try {
         console.log('Fetching meetings...');
-        // Add dummy test data for development
-        const dummyData = [
-          {
-            meeting_id: 9999,
-            title: "Test Meeting",
-            description: "This is a test meeting",
-            t1: new Date(new Date().getTime() - 30 * 60000).toISOString(), // 30 min ago
-            t2: new Date(new Date().getTime() + 60 * 60000).toISOString(), // 1 hour from now
-            lat: 37.9538,
-            long: 23.6840,
-            participants: "test@example.com"
-          }
-        ];
-
-        // Get meetings from API with forceRefresh flag
+        // Fetch active meetings from API
         const response = await store.dispatch('getActiveMeetings', { forceRefresh: true });
         console.log('Meetings response:', response);
-
-        // Separate active from upcoming meetings
         const now = new Date();
-
-        // If no meetings are returned or the array is empty
-        if (!response || response.length === 0) {
-          console.log('No meetings returned from API, using dummy data for development');
-
-          // Use dummy data for development to test UI
-          activeMeetings.value = dummyData;
-          upcomingMeetings.value = [];
-
-          // Try once more after a delay as the backend might still be processing
-          setTimeout(async () => {
-            try {
-              console.log('Retrying meeting fetch after delay...');
-              const retryResponse = await store.dispatch('getActiveMeetings', { forceRefresh: true });
-
-              if (retryResponse && retryResponse.length > 0) {
-                console.log('Retry succeeded, got meetings:', retryResponse);
-
-                // Update with new data
-                activeMeetings.value = retryResponse;
-
-                // Sort meetings between active and upcoming
-                upcomingMeetings.value = retryResponse.filter(meeting => {
-                  const startTime = new Date(meeting.t1);
-                  return startTime > now;
-                });
-
-                console.log('Updated after retry - Active:', activeMeetings.value);
-                console.log('Updated after retry - Upcoming:', upcomingMeetings.value);
-              }
-            } catch (retryError) {
-              console.error('Error in retry fetch:', retryError);
-            }
-          }, 2000);
-
-        } else {
-          // Process meetings if we have them - all meetings are active
-          activeMeetings.value = response;
-
-          // Just in case, include dummy data if we have no real data
-          if (activeMeetings.value.length === 0) {
-            activeMeetings.value = dummyData;
-          }
-
-          // Sort meetings to show most recent first
-          activeMeetings.value.sort((a, b) => {
-            return new Date(b.t1) - new Date(a.t1);
-          });
-
-          upcomingMeetings.value = response.filter(meeting => {
-            const startTime = new Date(meeting.t1);
-            return startTime > now;
-          });
-
-          console.log('Active meetings:', activeMeetings.value);
-          console.log('Upcoming meetings:', upcomingMeetings.value);
-        }
+        // Use response or empty array
+        activeMeetings.value = response || [];
+        // Sort meetings to show most recent first
+        activeMeetings.value.sort((a, b) => new Date(b.t1) - new Date(a.t1));
+        // Separate upcoming meetings
+        upcomingMeetings.value = activeMeetings.value.filter(meeting => new Date(meeting.t1) > now);
       } catch (error) {
         console.error('Error fetching meetings:', error);
-
-        // Use dummy data as fallback for UI testing
-        activeMeetings.value = [
-          {
-            meeting_id: 9999,
-            title: "Fallback Test Meeting",
-            description: "This meeting appears when an error occurs",
-            t1: new Date(new Date().getTime() - 30 * 60000).toISOString(),
-            t2: new Date(new Date().getTime() + 60 * 60000).toISOString(),
-            lat: 37.9538,
-            long: 23.6840,
-            participants: "test@example.com"
-          }
-        ];
-
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'Failed to fetch meetings, showing test data',
-          life: 3000
-        });
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to fetch meetings', life: 3000 });
+        activeMeetings.value = [];
+        upcomingMeetings.value = [];
       } finally {
         loading.value = false;
       }
