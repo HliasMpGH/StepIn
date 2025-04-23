@@ -147,6 +147,56 @@
           </template>
         </Card>
       </div>
+        <div class="dashboard-col">
+          <Card class="dashboard-card">
+            <template #title>
+              <div class="card-title">
+                <i class="pi pi-briefcase mr-2"></i>
+                My Meetings
+              </div>
+            </template>
+            <template #content>
+              <div v-if="userCreatedMeetings.length > 0" class="meetings-list">
+                <div v-for="meeting in userCreatedMeetings" :key="meeting.meeting_id" class="meeting-item">
+                  <div class="meeting-item-content">
+                    <div class="meeting-item-title">
+                      <span>{{ meeting.title }}</span>
+                      <div class="meeting-item-actions">
+                        <Button
+                          label="View"
+                          icon="pi pi-info-circle"
+                          class="p-button-outlined p-button-info"
+                          @click="viewMeeting(meeting.meeting_id)"
+                          style="margin-right: 0.5rem;"
+                        />
+                        <Button
+                          label="Delete"
+                          icon="pi pi-trash"
+                          class="p-button-outlined p-button-danger"
+                          @click="confirmDeleteMeeting(meeting.meeting_id)"
+                        />
+                      </div>
+                    </div>
+                    <div class="meeting-item-time">
+                      <i class="pi pi-clock mr-1"></i>
+                      {{ formatTime(meeting.t1) }} - {{ formatTime(meeting.t2) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="no-meetings">
+                <i class="pi pi-info-circle no-meetings-icon"></i>
+                <p>You haven't created any meetings yet</p>
+                <Button
+                  label="Create Meeting"
+                  icon="pi pi-plus"
+                  class="p-button-raised p-button-success p-button-lg mt-3"
+                  @click="createMeeting"
+                />
+              </div>
+            </template>
+          </Card>
+        </div>
       </div>
     </div>
   </div>
@@ -167,7 +217,7 @@ export default {
     }
   },
   computed: {
-    ...mapGetters(['currentUser', 'activeMeetings', 'nearbyMeetings', 'joinedMeeting', 'userLocation'])
+    ...mapGetters(['currentUser', 'activeMeetings', 'nearbyMeetings', 'joinedMeeting', 'userLocation', 'userCreatedMeetings'])
   },
   methods: {
     formatTime(timeString) {
@@ -251,7 +301,12 @@ export default {
     },
     async fetchData() {
       try {
+        // Refresh active meetings
         await this.$store.dispatch('getActiveMeetings')
+        // Get user's created meetings
+        if (this.currentUser) {
+          await this.$store.dispatch('getUserCreatedMeetings')
+        }
 
         // Get user location if not already set
         if (!this.userLocation) {
@@ -264,6 +319,37 @@ export default {
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
+      }
+    },
+    confirmDeleteMeeting(meetingId) {
+      this.$confirm.require({
+        message: 'Are you sure you want to delete this meeting?',
+        header: 'Delete Confirmation',
+        icon: 'pi pi-exclamation-triangle',
+        accept: () => {
+          this.deleteMeeting(meetingId)
+        }
+      })
+    },
+
+    async deleteMeeting(meetingId) {
+      try {
+        await this.$store.dispatch('deleteMeeting', meetingId)
+        this.$toast.add({
+          severity: 'success',
+          summary: 'Meeting Deleted',
+          detail: 'The meeting has been successfully deleted',
+          life: 3000
+        })
+      } catch (error) {
+        const errorMessage = error.response?.data?.detail ||
+                             error.message || 'Failed to delete meeting'
+        this.$toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: errorMessage,
+          life: 3000
+        })
       }
     },
     async fetchParticipants() {
@@ -404,6 +490,13 @@ export default {
 }
 
 .full-width-card {
+  width: 100%;
+}
+
+.dashboard-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
   width: 100%;
 }
 
@@ -577,8 +670,27 @@ export default {
     flex-direction: column;
   }
 
+  .dashboard-row {
+    flex-direction: column;
+  }
+
   .dashboard-col {
     width: 100%;
+  }
+
+  .status-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .meeting-item-title {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .meeting-item-actions {
+    margin-top: 0.5rem;
   }
 }
 </style>
