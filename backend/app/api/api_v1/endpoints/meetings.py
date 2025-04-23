@@ -32,6 +32,20 @@ async def create_meeting(meeting: MeetingCreate):
         raise HTTPException(status_code=400, detail=f"Error while creating meeting: {result['error']}")
     return MeetingIdResponse(meeting_id=result)
 
+@router.delete("/{meeting_id}", response_model=SuccessResponse, responses={404: {"model": ErrorResponse}})
+async def delete_meeting(meeting_id: int):
+    try:
+        result = meeting_service.delete_meeting(meeting_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to delete meeting")
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=400, detail=f"Failed to delete meeting: {result['error']}")
+
+    return SuccessResponse()
 
 @router.get("/active", response_model=MeetingListResponse)
 async def active_meetings():

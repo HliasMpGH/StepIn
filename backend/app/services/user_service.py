@@ -43,3 +43,19 @@ class UserService:
     def get_user(self, email):
         """Get user details by email"""
         return self.db.get_user(email)
+
+    def delete_user(self, email):
+        """Delete a user"""
+
+        # Check if user exists
+        user = self.get_user(email)
+        if not user:
+            return None
+
+        # Delete the user
+        result = self.db.delete_user(email)
+
+        if isinstance(result, dict) and "error" in result:
+            return result  # Return error message
+
+        return result  # Return True for success or None for not found

@@ -252,3 +252,24 @@ class MeetingService:
             return {"error": "User not found"}
 
         return self.redis_mgr.get_user_meeting_messages(email, meeting_id)
+
+    def delete_meeting(self, meeting_id):
+        """Delete a meeting"""
+
+        # Check if meeting exists
+        meeting = self.get_meeting(meeting_id)
+        if not meeting:
+            return None
+
+        # Check if meeting is active in Redis - deactivate first
+        if self.redis_mgr.redis_client.sismember(self.redis_mgr.active_meetings_key, str(meeting_id)):
+            # Deactivate meeting in Redis first
+            self.redis_mgr.deactivate_meeting(meeting_id)
+
+        # Delete the meeting from the database
+        result = self.db.delete_meeting(meeting_id)
+
+        if isinstance(result, dict) and "error" in result:
+            return result  # Return error message
+
+        return result  # Return True for success or None for not found

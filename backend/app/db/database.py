@@ -161,6 +161,27 @@ class Database:
                     (email, name, age, gender)
                 )
 
+    def delete_user(self, email):
+        """Delete a user from the database"""
+        # First check if the user exists
+        user = self.get_user(email)
+        if not user:
+            return None
+
+        try:
+            if self.use_postgres:
+                with self.conn.cursor() as cur:
+                    # Delete the user
+                    cur.execute("DELETE FROM users WHERE email = %s", (email,))
+                    self.conn.commit()
+            else:
+                with self.conn:
+                    self.conn.execute("DELETE FROM users WHERE email = ?", (email,))
+            return True
+        except Exception as e:
+            print(f"Error deleting user: {e}")
+            return {"error": f"Database error: {str(e)}"}
+
     def get_user(self, email):
         """Get user details by email"""
         if self.use_postgres:
@@ -206,6 +227,27 @@ class Database:
                     (title, description, t1, t2, lat, long, participants)
                 )
                 return cursor.lastrowid
+            
+    def delete_meeting(self, meeting_id):
+        """Delete a meeting from the database"""
+        # First check if the meeting exists
+        meeting = self.get_meeting(meeting_id)
+        if not meeting:
+            return None
+
+        try:
+            if self.use_postgres:
+                with self.conn.cursor() as cur:
+                    # Delete the meeting
+                    cur.execute("DELETE FROM meetings WHERE meeting_id = %s", (meeting_id,))
+                    self.conn.commit()
+            else:
+                with self.conn:
+                    self.conn.execute("DELETE FROM meetings WHERE meeting_id = ?", (meeting_id,))
+            return True
+        except Exception as e:
+            print(f"Error deleting meeting: {e}")
+        return {"error": f"Database error: {str(e)}"}
 
     def get_meeting(self, meeting_id):
         """Get meeting details by ID"""
