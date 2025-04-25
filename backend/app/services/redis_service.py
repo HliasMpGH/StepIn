@@ -174,15 +174,16 @@ class RedisManager:
             unit="m"
         )
 
-        print(f"NEARBY of {x, y}: {nearby_meetings}")
 
         user_participate_key = f"{self.user_participate_meetings}{email}"
         meetings_participate = self.redis_client.smembers(user_participate_key)
 
-        print(f"{email} is participant of {meetings_participate}")
-        print(f"return: {set(nearby_meetings) & meetings_participate}")
+
+        # Convert to consistent type
+        nearby_meetings_str = set(str(m) for m in nearby_meetings)
+
         # the intersection of these sets are the nearby meetings the user can join
-        return set(nearby_meetings) & meetings_participate
+        return nearby_meetings_str & meetings_participate
 
     def join_meeting(self, email, meeting_id):
         """User joins a meeting"""
