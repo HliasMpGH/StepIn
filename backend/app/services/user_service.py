@@ -46,24 +46,12 @@ class UserService:
         return self.db.get_user(email)
 
     def delete_user(self, email):
-        """Delete a user and all meetings created by them"""
+        """Delete a user"""
 
         # Check if user exists
         user = self.get_user(email)
         if not user:
             return None
-
-        # Get all meetings created by this user
-        user_meetings = self.db.get_meetings_by_user(email)
-        meeting_service = MeetingService()
-
-        # Delete each meeting
-        if user_meetings:
-            for meeting in user_meetings:
-                meeting_id = meeting.get('meeting_id')
-                if meeting_id:
-                    # Delete the meeting
-                    meeting_service.delete_meeting(meeting_id)
 
         # Delete the user
         result = self.db.delete_user(email)
