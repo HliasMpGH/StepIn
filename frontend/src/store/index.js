@@ -23,6 +23,7 @@ export default createStore({
     chatMessages: [],
     userMessages: [],
     userLocation: null,
+    userCreatedMeetings: [],
     loading: false,
     error: null
   },
@@ -37,6 +38,7 @@ export default createStore({
     chatMessages: state => state.chatMessages,
     userMessages: state => state.userMessages,
     userLocation: state => state.userLocation,
+    userCreatedMeetings: state => state.userCreatedMeetings,
     isLoading: state => state.loading,
     hasError: state => state.error !== null,
     errorMessage: state => state.error
@@ -69,6 +71,9 @@ export default createStore({
     },
     SET_USER_LOCATION(state, location) {
       state.userLocation = location
+    },
+    SET_USER_CREATED_MEETINGS(state, meetings) {
+      state.userCreatedMeetings = meetings
     },
     SET_LOADING(state, isLoading) {
       state.loading = isLoading
@@ -139,15 +144,18 @@ export default createStore({
       }
     },
     // Meeting management
-    async createMeeting({ commit, dispatch }, meetingData) {
+    async createMeeting({ commit, dispatch, state }, meetingData) {
       try {
         commit('SET_LOADING', true)
-        console.log('Creating meeting with data:', meetingData)
         const response = await apiClient.post('/meetings', meetingData)
-        console.log('Meeting created, response:', response.data)
 
         // Force immediate refresh of active meetings after creation
         await dispatch('getActiveMeetings', { forceRefresh: true })
+
+        // Also refresh user's created meetings
+        if (state.user) {
+          await dispatch('getUserCreatedMeetings')
+        }
 
         commit('SET_LOADING', false)
         return response.data
@@ -420,6 +428,71 @@ export default createStore({
         return response.data.messages
       } catch (error) {
         commit('SET_ERROR', error.response?.data?.error || 'Error getting user messages')
+        commit('SET_LOADING', false)
+        throw error
+      }
+    },
+
+    async getUserCreatedMeetings({ commit, state }) {
+      try {
+        if (!state.user) {
+          throw new Error('User not authenticated')
+        }
+
+        commit('SET_LOADING', true)
+        const response = await apiClient.get(`/meetings/${state.user.email}/meetings`)
+
+        // Get meeting IDs
+        const meetingIds = response.data.meetings || [];
+
+        if (meetingIds.length === 0) {
+          commit('SET_USER_CREATED_MEETINGS', []);
+          commit('SET_LOADING', false);
+          return [];
+        }
+
+        // Fetch details for each meeting
+        const meetings = [];
+        for (const meetingId of meetingIds) {
+          try {
+            const meetingResponse = await apiClient.get(`/meetings/${meetingId}`);
+            meetings.push(meetingResponse.data);
+          } catch (err) {
+            console.error(`Error fetching meeting ${meetingId}:`, err);
+          }
+        }
+
+        commit('SET_USER_CREATED_MEETINGS', meetings);
+        commit('SET_LOADING', false);
+        return meetings;
+      } catch (error) {
+        console.error('Error in getUserCreatedMeetings:', error)
+        commit('SET_ERROR', error.response?.data?.detail || error.message || 'Error getting user created meetings')
+        commit('SET_USER_CREATED_MEETINGS', [])
+        commit('SET_LOADING', false)
+        return [] // Return empty array instead of throwing error
+      }
+    },
+
+    async deleteMeeting({ commit, dispatch, state }, meetingId) {
+      try {
+        if (!state.user) {
+          throw new Error('User not authenticated')
+        }
+
+        commit('SET_LOADING', true)
+        await apiClient.delete(`/meetings/${meetingId}?email=${encodeURIComponent(state.user.email)}`)
+
+        // Refresh the user's meetings after deletion
+        await dispatch('getUserCreatedMeetings')
+
+        // Also refresh active meetings list
+        await dispatch('getActiveMeetings')
+
+        commit('SET_LOADING', false)
+        return true
+      } catch (error) {
+        commit('SET_ERROR', error.response?.data?.detail || error.message || 'Error deleting meeting')
         commit('SET_LOADING', false)
         throw error
       }

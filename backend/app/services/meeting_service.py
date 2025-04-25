@@ -17,45 +17,46 @@ class MeetingService:
             # invalid meeting attributes
             return {"error": ". ".join(errors)}
 
-        # Convert datetime strings to datetime objects if needed
-        if isinstance(t1, str):
-            t1_datetime = datetime.fromisoformat(t1.replace('Z', '+00:00'))
-        else:
-            t1_datetime = t1
+        try:
+            # Convert datetime strings to datetime objects if needed
+            if isinstance(t1, str):
+                t1_datetime = datetime.fromisoformat(t1.replace('Z', '+00:00'))
+            else:
+                t1_datetime = t1
 
-        if isinstance(t2, str):
-            t2_datetime = datetime.fromisoformat(t2.replace('Z', '+00:00'))
-        else:
-            t2_datetime = t2
+            if isinstance(t2, str):
+                t2_datetime = datetime.fromisoformat(t2.replace('Z', '+00:00'))
+            else:
+                t2_datetime = t2
 
-        # Add to database
-        meeting_id = self.db.add_meeting(title, description, t1_datetime, t2_datetime, lat, long, participants)
+            # Add to database
+            meeting_id = self.db.add_meeting(title, description, t1_datetime, t2_datetime, lat, long, participants)
 
-        if not meeting_id:
-            return {"error": "Could not load meeting in memory, after persistence"}
+            if not meeting_id:
+                return {"error": "Could not load meeting in memory, after persistence"}
 
-        # Also activate in Redis for real-time operations
-        # Get current time in UTC
-        now = datetime.now(timezone.utc)
-        print(f"Current time: {now}, Meeting end time: {t2_datetime}")
+            # Also activate in Redis for real-time operations
+            # Get current time in UTC
+            now = datetime.now(timezone.utc)
 
-        # Check if this is a current meeting
-        if t1_datetime < now < t2_datetime:
-            # Activate in Redis
-            result = self.redis_mgr.activate_meeting(
-                meeting_id,
-                title,
-                description,
-                lat,
-                long,
-                participants,
-                t2_datetime
-            )
-            print(f"Meeting {meeting_id} created and activated in Redis: {result}")
-        else:
-            print(f"Meeting {meeting_id} created but not activated in Redis")
+            # Check if this is a current meeting
+            if t1_datetime < now < t2_datetime:
+                # Activate in Redis
+                result = self.redis_mgr.activate_meeting(
+                    meeting_id,
+                    title,
+                    description,
+                    lat,
+                    long,
+                    participants,
+                    t2_datetime
+                )
 
-        return meeting_id
+            # Force a sync to make sure Redis is updated
+            self.sync_meetings()
+            return meeting_id
+        except Exception as e:
+            return {"error": f"Failed to create meeting: {str(e)}"}
 
     def get_attribute_errors(self, title, t1, t2, lat, long, participants):
         """Collect and return all error messages of the given user inputs"""
@@ -81,15 +82,16 @@ class MeetingService:
 
     def find_nearby_meetings(self, email, x, y):
         """Find nearby active meetings that the user can join"""
-        # Check if user exists
-        user = self.db.get_user(email)
-        if not user:
-            return {"error": "User not found"}
-
+        # Retrieve nearby active meetings for the user from Redis
         result = self.redis_mgr.get_nearby_meetings_for_user(email, x, y)
-        if result is None:
+        # If no meetings found or empty set, return empty list
+        if not result:
             return []
-        return result
+        # Convert meeting IDs to integers
+        try:
+            return [int(mid) for mid in result]
+        except Exception:
+            return []
 
     def join_meeting(self, email, meeting_id):
         """User joins a meeting"""
@@ -253,50 +255,38 @@ class MeetingService:
 
         return self.redis_mgr.get_user_meeting_messages(email, meeting_id)
 
-    def delete_meeting(self, meeting_id):
-        """Delete a meeting"""
-
-        # Check if meeting exists
-        meeting = self.get_meeting(meeting_id)
-        if not meeting:
-            return None
-
-        # Check if meeting is active in Redis - deactivate first
-        if self.redis_mgr.redis_client.sismember(self.redis_mgr.active_meetings_key, str(meeting_id)):
-            # Deactivate meeting in Redis first
-            self.redis_mgr.deactivate_meeting(meeting_id)
-
-        # Delete the meeting from the database
-        result = self.db.delete_meeting(meeting_id)
-
-        if isinstance(result, dict) and "error" in result:
-            return result  # Return error message
-
-        return result  # Return True for success or None for not found
-
     def get_meetings_by_user(self, email: str):
         """
         Retrieve all meetings where the given email is listed as a participant.
         """
         # Query DB for meetings matching the user
         meetings = self.db.get_meetings_by_user(email)
-        return meetings or []
 
-    # Modify delete_meeting signature to enforce creator check:
-    def delete_meeting(self, meeting_id: int, email: str):
+        # Return meeting IDs only
+        if meetings:
+            # Convert to integer IDs
+            meeting_ids = [meeting.get('meeting_id') for meeting in meetings]
+            print(f"Returning meeting IDs: {meeting_ids}")
+            return meeting_ids
+        return []
+
+    def delete_meeting(self, meeting_id: int, email: str = None):
         """
-        Delete a meeting only if the given email is among its participants (assumed creator).
+        Delete a meeting. If email is provided, ensure the user is authorized.
         """
         # Fetch meeting
-        meeting = self.db.get_meeting(meeting_id)
+        meeting = self.get_meeting(meeting_id)
         if not meeting:
             return None
-        # Ensure user is creator/participant
-        if email not in meeting.get("participants", ""):
+
+        # If email is provided, ensure user is creator/participant
+        if email and email not in meeting.get("participants", ""):
             return {"error": "Not authorized to delete this meeting"}
+
         # Deactivate in Redis if active
         if self.redis_mgr.redis_client.sismember(self.redis_mgr.active_meetings_key, str(meeting_id)):
             self.redis_mgr.deactivate_meeting(meeting_id)
+
         # Delete in DB
         result = self.db.delete_meeting(meeting_id)
         return result
