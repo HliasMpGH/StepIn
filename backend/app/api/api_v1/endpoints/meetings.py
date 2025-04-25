@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 
-from app.models.meeting import MeetingCreate, Meeting, MeetingIdResponse, MeetingListResponse
+from app.models.meeting import MeetingCreate, MeetingResponse, MeetingIdResponse, MeetingListResponse
 from app.models.user import JoinLeaveRequest, SuccessResponse, ErrorResponse, ParticipantListResponse, EndMeetingResponse
 from app.models.message import MessageListResponse
 from app.services.meeting_service import MeetingService
@@ -126,7 +126,7 @@ async def nearby_meetings(email: str, x: float, y: float):
     return MeetingListResponse(meetings=result)
 
 
-@router.get("/{meeting_id}", response_model=Meeting, responses={404: {"model": ErrorResponse}})
+@router.get("/{meeting_id}", response_model=MeetingResponse, responses={404: {"model": ErrorResponse}})
 async def get_meeting(meeting_id: int):
     try:
         meeting = meeting_service.get_meeting(meeting_id)

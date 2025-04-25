@@ -45,7 +45,7 @@
                       </div>
                       <div class="detail-item">
                         <i class="pi pi-users"></i>
-                        <span>{{ meeting.participants.split(',').length }} participants</span>
+                        <span>{{ meeting.participants.length }} participants</span>
                       </div>
                       <div class="detail-item">
                         <i class="pi pi-map-marker"></i>
@@ -108,7 +108,7 @@
                       </div>
                       <div class="detail-item">
                         <i class="pi pi-users"></i>
-                        <span>{{ meeting.participants.split(',').length }} participants</span>
+                        <span>{{ meeting.participants.length }} participants</span>
                       </div>
                       <div class="detail-item">
                         <i class="pi pi-map-marker"></i>

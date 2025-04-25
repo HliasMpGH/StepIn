@@ -78,7 +78,23 @@ class MeetingService:
 
     def get_meeting(self, meeting_id):
         """Get meeting details by ID"""
-        return self.db.get_meeting(meeting_id)
+        # try to find in cache
+        meeting = self.redis_mgr.get_meeting_by_id(meeting_id)
+
+        if not meeting:
+            print("getting from db")
+            # cache miss, retrieve from db
+            meeting = self.db.get_meeting(meeting_id)
+            # cast the stringified participants into a list
+            # to be consistent with the return type
+            meeting["participants"] = map(
+                lambda email: email.strip(),
+                meeting["participants"].split(",")
+            )
+        else:
+            print("got from cache")
+
+        return meeting
 
     def find_nearby_meetings(self, email, x, y):
         """Find nearby active meetings that the user can join"""
@@ -176,6 +192,7 @@ class MeetingService:
             meeting["lat"],
             meeting["long"],
             meeting["participants"],
+            meeting["t1"],
             meeting["t2"]
         )
 

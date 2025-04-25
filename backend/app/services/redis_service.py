@@ -31,19 +31,20 @@ class RedisManager:
         self.user_joined_meeting = "user_joined_meeting:"  # Prefix for user's joined meeting
         self.user_participate_meetings = "user_participate_meetings:"  # Prefix for all meetings the user is a participant
 
-    def activate_meeting(self, meeting_id, title, description, lat, long, participants, t2):
+    def activate_meeting(self, meeting_id, title, description, lat, long, participants, t1, t2):
         """Activate a meeting in Redis"""
         print(f"Activating meeting in Redis: ID={meeting_id}, title={title}")
 
         # Store meeting details
         meeting_key = f"{self.meeting_prefix}{meeting_id}"
         meeting_data = {
-            "id": meeting_id,
+            # "id": meeting_id,
             "title": title,
             "description": description,
-            "lat": lat,
-            "long": long,
-            "participants": participants,
+            # "lat": lat,
+            # "long": long,
+            # "participants": participants,
+            "t1": t1.isoformat() if isinstance(t1, datetime) else t1,
             "t2": t2.isoformat() if isinstance(t2, datetime) else t2
         }
         self.redis_client.hset(meeting_key, mapping=meeting_data)
@@ -126,6 +127,30 @@ class RedisManager:
 
         print(f"Deactivated meeting {meeting_id} from Redis")
         return list(joined_participants)
+
+    def get_meeting_by_id(self, meeting_id):
+        """Get meeting attributes from a given a meeting id"""
+        # get the basic meeting attributes
+        meeting_key = f"{self.meeting_prefix}{meeting_id}"
+        meeting = self.redis_client.hgetall(meeting_key)
+
+        if not meeting:
+            return None
+
+        # get the position of the meeting
+        long, lat = self.redis_client.geopos(self.meeting_positions_key, meeting_id)[0]
+
+        # get the participants of the meeting
+        meeting_participants_key = f"{self.participants_prefix}{meeting_id}"
+        participants = self.redis_client.smembers(meeting_participants_key)
+
+        # add all the attributes together
+        meeting["meeting_id"] = meeting_id
+        meeting["long"] = long
+        meeting["lat"] = lat
+        meeting["participants"] = participants
+
+        return meeting
 
     def get_active_meetings(self):
         """Get list of all active meeting IDs"""

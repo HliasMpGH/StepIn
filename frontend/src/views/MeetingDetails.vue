@@ -132,7 +132,7 @@
             </template>
           </Card>
         </div>
-        
+
         <!-- Full-width location card -->
         <Card class="location-card">
           <template #title>
@@ -150,15 +150,15 @@
                   <span>{{ locationAddress }}</span>
                 </div>
               </div>
-              
+
               <!-- The map container -->
               <div ref="mapContainer" class="map-container-full"></div>
-              
+
               <!-- Map actions -->
               <div class="map-actions">
-                <Button 
-                  label="Get Directions in Google Maps" 
-                  icon="pi pi-map" 
+                <Button
+                  label="Get Directions in Google Maps"
+                  icon="pi pi-map"
                   class="p-button p-button-success"
                   @click="openInMaps"
                 />
@@ -305,7 +305,7 @@ export default {
       loadingParticipants.value = true;
       try {
         // Get list of all participants from meeting data
-        participants.value = meeting.value.participants.split(',').map(email => email.trim());
+        participants.value = meeting.value.participants //.split(',').map(email => email.trim());
 
         // Get list of joined participants
         joinedParticipants.value = await store.dispatch('getMeetingParticipants', meetingId.value);
@@ -414,14 +414,14 @@ export default {
             console.log("Initializing map...");
             console.log("Map container:", mapContainer.value);
             console.log("Meeting coordinates:", meeting.value.lat, meeting.value.long);
-            
+
             // Check if map was already initialized
             if (mapInstance.value) {
               console.log("Removing existing map instance");
               mapInstance.value.remove();
               mapInstance.value = null;
             }
-            
+
             // Simple map initialization with minimum options to improve reliability
             mapInstance.value = L.map(mapContainer.value, {
               zoomControl: true,
@@ -445,20 +445,20 @@ export default {
               popupAnchor: [1, -34],
               shadowSize: [41, 41]
             });
-            
+
             const meetingMarker = L.marker([meeting.value.lat, meeting.value.long], {
               icon: meetingIcon,
               title: meeting.value.title
             }).addTo(mapInstance.value);
-            
+
             // Simple popup with just the meeting title
             meetingMarker.bindPopup(`<b>${meeting.value.title}</b>`).openPopup();
-            
+
             // Lookup address for this location
             lookupAddress();
-            
+
             console.log("Map initialization complete");
-            
+
             // Force resize to ensure proper display
             mapInstance.value.invalidateSize();
           } catch (error) {
@@ -531,7 +531,7 @@ export default {
     // Method to lookup address from coordinates
     const lookupAddress = async () => {
       if (!meeting.value) return;
-      
+
       loadingAddress.value = true;
       try {
         const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
@@ -547,7 +547,7 @@ export default {
             'User-Agent': 'StepIn Meeting App'
           }
         });
-        
+
         if (response.data && response.data.display_name) {
           locationAddress.value = response.data.display_name;
         } else {
@@ -570,19 +570,19 @@ export default {
         loadingAddress.value = false;
       }
     };
-    
+
     // Method to open location in Google Maps
     const openInMaps = () => {
       if (!meeting.value) return;
-      
+
       const url = `https://www.google.com/maps/dir/?api=1&destination=${meeting.value.lat},${meeting.value.long}`;
       window.open(url, '_blank');
     };
-    
+
     // Method to open location in OpenStreetMap
     const openOSM = () => {
       if (!meeting.value) return;
-      
+
       const url = `https://www.openstreetmap.org/?mlat=${meeting.value.lat}&mlon=${meeting.value.long}&zoom=16`;
       window.open(url, '_blank');
     };
@@ -888,11 +888,11 @@ export default {
   .meeting-actions {
     flex-direction: column;
   }
-  
+
   .map-container-full {
     height: 300px;
   }
-  
+
   .map-actions {
     flex-direction: column;
   }

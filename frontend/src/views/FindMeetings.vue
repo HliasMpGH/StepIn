@@ -85,7 +85,7 @@
                       {{ meeting.description || 'No description provided' }}
                     </div>
                     <div class="meeting-participants">
-                      <strong>Participants: </strong> {{ meeting.participants.split(',').length }}
+                      <strong>Participants: </strong> {{ meeting.participants.length }}
                     </div>
                     <div class="meeting-location">
                       <strong>Distance: </strong>

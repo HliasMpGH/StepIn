@@ -2,14 +2,14 @@
   <div class="create-meeting-container">
     <div class="header">
       <h1>Create New Meeting</h1>
-      <Button 
-        label="Back to Meetings" 
-        icon="pi pi-arrow-left" 
-        class="p-button-rounded p-button-secondary" 
+      <Button
+        label="Back to Meetings"
+        icon="pi pi-arrow-left"
+        class="p-button-rounded p-button-secondary"
         @click="$router.push('/meetings')"
       />
     </div>
-    
+
     <Card>
       <template #title>
         <div class="card-header">
@@ -22,9 +22,9 @@
           <div class="form-grid">
             <div class="field col-12">
               <label for="meeting-title">Meeting Title*</label>
-              <InputText 
-                id="meeting-title" 
-                v-model="meeting.title" 
+              <InputText
+                id="meeting-title"
+                v-model="meeting.title"
                 :class="{'p-invalid': submitted && !meeting.title}"
                 required
                 placeholder="Enter a descriptive title for your meeting"
@@ -32,28 +32,28 @@
               />
               <small id="title-label" v-if="submitted && !meeting.title" class="p-error">Title is required</small>
             </div>
-            
+
             <div class="field col-12">
               <label for="meeting-description">Description</label>
-              <Textarea 
-                id="meeting-description" 
-                v-model="meeting.description" 
-                rows="3" 
+              <Textarea
+                id="meeting-description"
+                v-model="meeting.description"
+                rows="3"
                 autoResize
                 placeholder="Provide additional details about this meeting"
                 aria-labelledby="description-label"
               />
               <small id="description-label" class="p-text-secondary">Optional: Provide more details about the meeting purpose</small>
             </div>
-            
+
             <div class="field col-12 md:col-6">
               <label for="meeting-start-time">Start Time*</label>
-              <Calendar 
-                id="meeting-start-time" 
-                v-model="meeting.startTime" 
-                showTime 
-                hourFormat="24" 
-                :minDate="new Date()" 
+              <Calendar
+                id="meeting-start-time"
+                v-model="meeting.startTime"
+                showTime
+                hourFormat="24"
+                :minDate="new Date()"
                 :class="{'p-invalid': submitted && !meeting.startTime}"
                 required
                 placeholder="Select start date and time"
@@ -61,14 +61,14 @@
               />
               <small id="start-time-label" v-if="submitted && !meeting.startTime" class="p-error">Start time is required</small>
             </div>
-            
+
             <div class="field col-12 md:col-6">
               <label for="meeting-end-time">End Time*</label>
-              <Calendar 
-                id="meeting-end-time" 
-                v-model="meeting.endTime" 
-                showTime 
-                hourFormat="24" 
+              <Calendar
+                id="meeting-end-time"
+                v-model="meeting.endTime"
+                showTime
+                hourFormat="24"
                 :minDate="meeting.startTime || new Date()"
                 :class="{'p-invalid': submitted && !validEndTime}"
                 required
@@ -78,26 +78,26 @@
               <small id="end-time-label" v-if="submitted && !meeting.endTime" class="p-error">End time is required</small>
               <small v-else-if="submitted && !validEndTime" class="p-error">End time must be after start time</small>
             </div>
-            
+
             <div class="field col-12">
               <label>Meeting Location* <span class="location-help">(Click or drag on the map to set)</span></label>
               <div id="location-map" class="location-map"></div>
               <div v-if="hasLocationSelected" class="location-info">
-                <i class="pi pi-map-marker"></i> 
+                <i class="pi pi-map-marker"></i>
                 <span v-if="locationAddress">{{ locationAddress }}</span>
                 <span v-else>Location selected</span>
               </div>
               <small v-if="submitted && !hasLocationSelected" class="p-error">Please select a location on the map</small>
             </div>
-            
+
             <!-- Lat/Long fields hidden from UI but kept in data model -->
-            
+
             <div class="field col-12">
               <label for="meeting-participants">Participants (comma-separated emails)*</label>
-              <Textarea 
-                id="meeting-participants" 
-                v-model="meeting.participants" 
-                rows="3" 
+              <Textarea
+                id="meeting-participants"
+                v-model="meeting.participants"
+                rows="3"
                 placeholder="email1@example.com, email2@example.com, ..."
                 :class="{'p-invalid': submitted && !meeting.participants}"
                 required
@@ -107,19 +107,19 @@
               <small class="p-text-secondary">Note: You will be automatically added as a participant.</small>
             </div>
           </div>
-          
+
           <div class="action-buttons">
-            <Button 
-              type="button" 
-              label="Cancel" 
-              icon="pi pi-times" 
+            <Button
+              type="button"
+              label="Cancel"
+              icon="pi pi-times"
               class="p-button-secondary mr-2"
               @click="cancel"
             />
-            <Button 
-              type="submit" 
-              label="Create Meeting" 
-              icon="pi pi-check" 
+            <Button
+              type="submit"
+              label="Create Meeting"
+              icon="pi pi-check"
               :loading="loading"
             />
           </div>
@@ -169,15 +169,15 @@ export default {
   methods: {
     initMap() {
       if (this.map) return
-      
+
       // Create map
       this.map = L.map('location-map').setView([0, 0], 15)
-      
+
       // Add tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
       }).addTo(this.map)
-      
+
       // Add click handler to update location
       this.map.on('click', (e) => {
         this.meeting.latitude = e.latlng.lat
@@ -185,7 +185,7 @@ export default {
         this.updateMarker()
         this.reverseGeocode(e.latlng.lat, e.latlng.lng)
       })
-      
+
       // Try to get user's current location
       this.getUserLocation()
     },
@@ -199,14 +199,14 @@ export default {
         this.reverseGeocode(this.userLocation.lat, this.userLocation.lng)
         return
       }
-      
+
       // Otherwise try to get from browser
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           position => {
             this.meeting.latitude = position.coords.latitude
             this.meeting.longitude = position.coords.longitude
-            
+
             // Center map on user's location
             this.map.setView([this.meeting.latitude, this.meeting.longitude], 15)
             this.updateMarker()
@@ -220,7 +220,7 @@ export default {
               detail: 'Click on the map to set meeting location',
               life: 5000
             })
-            
+
             // Set default location - Athens, Greece
             this.map.setView([37.9838, 23.7275], 13)
           }
@@ -232,7 +232,7 @@ export default {
       if (this.marker) {
         this.map.removeLayer(this.marker)
       }
-      
+
       // Add new marker
       this.marker = L.marker([this.meeting.latitude, this.meeting.longitude], {
         draggable: true
@@ -240,7 +240,7 @@ export default {
         .addTo(this.map)
         .bindPopup('Meeting Location')
         .openPopup()
-      
+
       // Update location when marker is dragged
       this.marker.on('dragend', (e) => {
         const marker = e.target
@@ -264,7 +264,7 @@ export default {
             'Accept-Language': 'en'
           }
         })
-        
+
         if (response.data && response.data.display_name) {
           this.locationAddress = response.data.display_name
         } else {
@@ -280,12 +280,12 @@ export default {
     },
     ensureUserInParticipants() {
       if (!this.currentUser) return
-      
+
       // Make sure current user is in participants list
       const participants = this.meeting.participants.split(',')
         .map(p => p.trim())
         .filter(p => p) // Remove empty entries
-      
+
       if (!participants.includes(this.currentUser.email)) {
         if (participants.length > 0) {
           this.meeting.participants += `, ${this.currentUser.email}`
@@ -297,17 +297,17 @@ export default {
     validateEmails(emails) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       const invalidEmails = []
-      
+
       const emailList = emails.split(',')
         .map(email => email.trim())
         .filter(email => email)
-      
+
       for (const email of emailList) {
         if (!emailRegex.test(email)) {
           invalidEmails.push(email)
         }
       }
-      
+
       return {
         valid: invalidEmails.length === 0,
         invalidEmails
@@ -315,7 +315,7 @@ export default {
     },
     async createMeeting() {
       this.submitted = true
-      
+
       // Basic validation
       if (!this.meeting.title) {
         this.$toast.add({
@@ -326,7 +326,7 @@ export default {
         })
         return
       }
-      
+
       if (!this.meeting.startTime || !this.meeting.endTime) {
         this.$toast.add({
           severity: 'error',
@@ -336,7 +336,7 @@ export default {
         })
         return
       }
-      
+
       if (!this.validEndTime) {
         this.$toast.add({
           severity: 'error',
@@ -346,7 +346,7 @@ export default {
         })
         return
       }
-      
+
       if (!this.hasLocationSelected) {
         this.$toast.add({
           severity: 'error',
@@ -356,7 +356,7 @@ export default {
         })
         return
       }
-      
+
       if (!this.meeting.participants) {
         this.$toast.add({
           severity: 'error',
@@ -366,7 +366,7 @@ export default {
         })
         return
       }
-      
+
       // Validate email format
       const emailValidation = this.validateEmails(this.meeting.participants)
       if (!emailValidation.valid) {
@@ -378,13 +378,13 @@ export default {
         })
         return
       }
-      
+
       // Ensure current user is included in participants
       this.ensureUserInParticipants()
-      
+
       try {
         this.loading = true
-        
+
         const meetingData = {
           title: this.meeting.title,
           description: this.meeting.description || '',
@@ -394,9 +394,9 @@ export default {
           long: this.meeting.longitude,
           participants: this.meeting.participants
         }
-        
+
         const result = await this.$store.dispatch('createMeeting', meetingData)
-        
+
         if (result.meeting_id) {
           // Show success message
           this.$toast.add({
@@ -405,18 +405,18 @@ export default {
             detail: `Meeting "${this.meeting.title}" has been created successfully`,
             life: 3000
           })
-          
+
           console.log('Meeting created with ID:', result.meeting_id)
-          
+
           // Wait a bit for backend to fully process the meeting
           await new Promise(resolve => setTimeout(resolve, 500))
-          
+
           // Force refresh meetings list multiple times with increasing delays
           console.log('Refreshing meetings list after creation - attempt 1')
           try {
             const meetings = await this.$store.dispatch('getActiveMeetings', { forceRefresh: true })
             console.log('Meetings refreshed (attempt 1), found:', meetings)
-            
+
             // If no meetings found, try again after a delay
             if (!meetings || meetings.length === 0) {
               await new Promise(resolve => setTimeout(resolve, 1000))
@@ -427,7 +427,7 @@ export default {
           } catch (error) {
             console.error('Error refreshing meetings:', error)
           }
-          
+
           // Create a delay to ensure everything is updated
           setTimeout(() => {
             // Navigate back to meetings list
@@ -458,12 +458,12 @@ export default {
       this.$router.push('/login')
       return
     }
-    
+
     // Initialize map
     this.$nextTick(() => {
       this.initMap()
     })
-    
+
     // Set default meeting times
     const now = new Date()
     this.meeting.startTime = new Date(now.getTime() + 60 * 60 * 1000) // 1 hour from now
@@ -587,19 +587,19 @@ label {
   .create-meeting-container {
     margin: 1rem;
   }
-  
+
   .form-grid {
     gap: 0.75rem;
   }
-  
+
   .location-map {
     height: 250px;
   }
-  
+
   .action-buttons {
     flex-direction: column;
   }
-  
+
   .action-buttons .p-button {
     margin-right: 0;
     margin-bottom: 0.5rem;
