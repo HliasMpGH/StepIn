@@ -1,5 +1,4 @@
 from app.db.database import get_database
-from app.services.meeting_service import MeetingService
 
 class UserService:
     def __init__(self):
