@@ -115,10 +115,11 @@ class RedisManager:
             user_meetings_key = f"{self.user_joined_meeting}{email}"
             self.redis_client.delete(user_meetings_key)
 
-        # For each participant, remove this meeting from their participated meetings
+        # For each participant, remove this meeting from their participated meetings, and chats
         for email in self.redis_client.smembers(participants_key):
             user_participate_key = f"{self.user_participate_meetings}{email}"
             self.redis_client.srem(user_participate_key, meeting_id)
+            self.redis_client.delete(f"{chat_key}:{email}") # remove messages indices of user
             print(f"removed {meeting_id} from {email}")
             print(f"{email} participated meetings: {self.redis_client.smembers(user_participate_key)}")
 
@@ -265,6 +266,7 @@ class RedisManager:
         chat_key = f"{self.chat_prefix}{meeting_id}"
         position = self.redis_client.rpush(chat_key, json.dumps(chat_message)) - 1
 
+        # Add message index to chat list of user
         user_chat_key = f"{chat_key}:{email}"
         self.redis_client.rpush(user_chat_key, position)
 
