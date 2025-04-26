@@ -32,7 +32,14 @@
               <div class="meeting-title">{{ joinedMeeting.title }}</div>
               <div class="meeting-time">{{ formatTime(joinedMeeting.t1) }} - {{ formatTime(joinedMeeting.t2) }}</div>
             </div>
-            <div class="participants-info">
+            <div class="chat-actions">
+              <!-- Toggle button for showing only user messages -->
+              <Button
+                :icon="showOnlyUserMessages ? 'pi pi-user' : 'pi pi-users'"
+                :class="['p-button-rounded p-button-text mr-2', showOnlyUserMessages ? 'p-button-outlined' : '']"
+                @click="toggleUserMessagesFilter"
+                v-tooltip="showOnlyUserMessages ? 'Show All Messages' : 'Show Only My Messages'"
+              />
               <Button
                 icon="pi pi-users"
                 class="p-button-rounded p-button-text"
@@ -50,14 +57,14 @@
               <div v-if="loadingMessages" class="loading-messages">
                 <ProgressSpinner />
               </div>
-              <div v-else-if="messages.length === 0" class="no-messages">
+              <div v-else-if="displayedMessages.length === 0" class="no-messages">
                 <i class="pi pi-comments"></i>
-                <p>No messages yet. Be the first to send a message!</p>
+                <p>{{ showOnlyUserMessages ? 'You haven\'t sent any messages yet.' : 'No messages yet. Be the first to send a message!' }}</p>
               </div>
 
               <div v-else class="messages">
                 <div
-                  v-for="(message, index) in messages"
+                  v-for="(message, index) in displayedMessages"
                   :key="index"
                   :class="['message', message.email === currentUser.email ? 'message-own' : 'message-other']"
                 >
@@ -166,10 +173,11 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import axios from 'axios';
 
 export default {
   name: 'ChatRoom',
@@ -188,11 +196,21 @@ export default {
     const leaveDialogVisible = ref(false);
     const refreshInterval = ref(null);
     const participantNames = ref({});  // Cache for participant names
+    const showOnlyUserMessages = ref(false);
+    const userMessages = ref([]);
 
     const currentUser = computed(() => store.getters.currentUser);
     const joinedMeeting = computed(() => store.getters.joinedMeeting);
     const messages = computed(() => store.getters.chatMessages || []);
     const participants = computed(() => store.getters.meetingParticipants || []);
+
+    const displayedMessages = computed(() => {
+      if (showOnlyUserMessages.value) {
+        return userMessages.value;
+      } else {
+        return messages.value;
+      }
+    });
 
     onMounted(async () => {
       if (!store.getters.isAuthenticated) {
@@ -224,6 +242,11 @@ export default {
       }
     });
 
+    // Watch for changes in displayed messages to scroll to bottom
+    watch(displayedMessages, () => {
+      scrollToBottom();
+    });
+
     onBeforeUnmount(() => {
       stopRefreshInterval();
     });
@@ -242,9 +265,44 @@ export default {
 
       try {
         await store.dispatch('getMeetingMessages', joinedMeeting.value.meeting_id);
+        if (showOnlyUserMessages.value) {
+          await fetchUserMessages();
+        }
         scrollToBottom();
       } catch (error) {
         console.error('Error refreshing messages:', error);
+      }
+    };
+
+
+    const fetchUserMessages = async () => {
+  if (!joinedMeeting.value || !currentUser.value) return;
+
+  try {
+
+    const response = await axios.get(`/api/meetings/${joinedMeeting.value.meeting_id}/messages/${encodeURIComponent(currentUser.value.email)}`);
+
+    userMessages.value = response.data.messages.map(msg => ({
+      email: currentUser.value.email,
+      message: msg.message,
+      timestamp: msg.timestamp
+    }));
+  } catch (error) {
+    console.error('Error fetching user messages:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to load your messages',
+      life: 3000
+    });
+  }
+}
+    // Toggle between showing all messages and only user messages
+    const toggleUserMessagesFilter = async () => {
+      showOnlyUserMessages.value = !showOnlyUserMessages.value;
+
+      if (showOnlyUserMessages.value) {
+        await fetchUserMessages();
       }
     };
 
@@ -387,7 +445,12 @@ export default {
       joinedMeeting,
       messages,
       participants,
+      displayedMessages,
+      userMessages,
+      showOnlyUserMessages,
       refreshMessages,
+      fetchUserMessages,
+      toggleUserMessagesFilter,
       sendMessage,
       confirmLeaveMeeting,
       leaveMeeting,
@@ -436,6 +499,11 @@ export default {
 .chat-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.chat-actions {
+  display: flex;
   align-items: center;
 }
 
