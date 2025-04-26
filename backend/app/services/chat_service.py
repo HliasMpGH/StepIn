@@ -17,11 +17,3 @@ class ChatService:
         result = self.redis_mgr.post_message(email, text)
         if isinstance(result, dict) and "error" in result:
             return result # error message
-
-        # If successful, also store in the database for persistence
-        meeting_id = self.redis_mgr.get_user_joined_meeting(email)
-
-        if meeting_id:
-            self.db.save_chat_message(meeting_id, email, text)
-        else:
-            print(f"didnt save message '{text}' in rdb. Cant find user joined meeting.")

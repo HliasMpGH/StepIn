@@ -78,17 +78,17 @@ class Database:
             """)
 
             # Create chat messages table
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS chat_messages (
-                    id SERIAL PRIMARY KEY,
-                    meeting_id INTEGER NOT NULL,
-                    email VARCHAR(255) NOT NULL,
-                    message TEXT NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id),
-                    FOREIGN KEY (email) REFERENCES users(email)
-                )
-            """)
+            # cur.execute("""
+            #     CREATE TABLE IF NOT EXISTS chat_messages (
+            #         id SERIAL PRIMARY KEY,
+            #         meeting_id INTEGER NOT NULL,
+            #         email VARCHAR(255) NOT NULL,
+            #         message TEXT NOT NULL,
+            #         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            #         FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id),
+            #         FOREIGN KEY (email) REFERENCES users(email)
+            #     )
+            # """)
 
             self.conn.commit()
 
@@ -133,17 +133,17 @@ class Database:
             """)
 
             # Create chat messages table
-            self.conn.execute("""
-                CREATE TABLE IF NOT EXISTS chat_messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    meeting_id INTEGER NOT NULL,
-                    email TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id),
-                    FOREIGN KEY (email) REFERENCES users(email)
-                )
-            """)
+            # self.conn.execute("""
+            #     CREATE TABLE IF NOT EXISTS chat_messages (
+            #         id INTEGER PRIMARY KEY AUTOINCREMENT,
+            #         meeting_id INTEGER NOT NULL,
+            #         email TEXT NOT NULL,
+            #         message TEXT NOT NULL,
+            #         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            #         FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id),
+            #         FOREIGN KEY (email) REFERENCES users(email)
+            #     )
+            # """)
 
     def add_user(self, email, name, age, gender):
         """Add a new user to the database"""
@@ -363,77 +363,77 @@ class Database:
                 )
                 return True
 
-    def save_chat_message(self, meeting_id, email, message):
-        """Save a chat message"""
-        if self.use_postgres:
-            with self.conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO chat_messages (meeting_id, email, message) VALUES (%s, %s, %s)",
-                    (meeting_id, email, message)
-                )
-                self.conn.commit()
-                return True
-        else:
-            with self.conn:
-                self.conn.execute(
-                    "INSERT INTO chat_messages (meeting_id, email, message) VALUES (?, ?, ?)",
-                    (meeting_id, email, message)
-                )
-                return True
+    # def save_chat_message(self, meeting_id, email, message):
+    #     """Save a chat message"""
+    #     if self.use_postgres:
+    #         with self.conn.cursor() as cur:
+    #             cur.execute(
+    #                 "INSERT INTO chat_messages (meeting_id, email, message) VALUES (%s, %s, %s)",
+    #                 (meeting_id, email, message)
+    #             )
+    #             self.conn.commit()
+    #             return True
+    #     else:
+    #         with self.conn:
+    #             self.conn.execute(
+    #                 "INSERT INTO chat_messages (meeting_id, email, message) VALUES (?, ?, ?)",
+    #                 (meeting_id, email, message)
+    #             )
+    #             return True
 
-    def get_meeting_messages(self, meeting_id):
-        """Get all messages for a meeting"""
-        if self.use_postgres:
-            with self.conn.cursor() as cur:
-                cur.execute(
-                    """SELECT email, message, timestamp FROM chat_messages
-                       WHERE meeting_id = %s ORDER BY timestamp""",
-                    (meeting_id,)
-                )
-                return [dict(row) for row in cur.fetchall()]
-        else:
-            cursor = self.conn.cursor()
-            cursor.execute(
-                """SELECT email, message, timestamp FROM chat_messages
-                   WHERE meeting_id = ? ORDER BY timestamp""",
-                (meeting_id,)
-            )
-            return [{"email": row["email"], "message": row["message"], "timestamp": row["timestamp"]}
-                    for row in cursor.fetchall()]
+    # def get_meeting_messages(self, meeting_id):
+    #     """Get all messages for a meeting"""
+    #     if self.use_postgres:
+    #         with self.conn.cursor() as cur:
+    #             cur.execute(
+    #                 """SELECT email, message, timestamp FROM chat_messages
+    #                    WHERE meeting_id = %s ORDER BY timestamp""",
+    #                 (meeting_id,)
+    #             )
+    #             return [dict(row) for row in cur.fetchall()]
+    #     else:
+    #         cursor = self.conn.cursor()
+    #         cursor.execute(
+    #             """SELECT email, message, timestamp FROM chat_messages
+    #                WHERE meeting_id = ? ORDER BY timestamp""",
+    #             (meeting_id,)
+    #         )
+    #         return [{"email": row["email"], "message": row["message"], "timestamp": row["timestamp"]}
+    #                 for row in cursor.fetchall()]
 
-    def get_user_messages(self, email, meeting_id=None):
-        """Get all messages by a user (optionally for a specific meeting)"""
-        if self.use_postgres:
-            with self.conn.cursor() as cur:
-                if meeting_id:
-                    cur.execute(
-                        """SELECT meeting_id, message, timestamp FROM chat_messages
-                           WHERE email = %s AND meeting_id = %s ORDER BY timestamp""",
-                        (email, meeting_id)
-                    )
-                else:
-                    cur.execute(
-                        """SELECT meeting_id, message, timestamp FROM chat_messages
-                           WHERE email = %s ORDER BY timestamp""",
-                        (email,)
-                    )
-                return [dict(row) for row in cur.fetchall()]
-        else:
-            cursor = self.conn.cursor()
-            if meeting_id:
-                cursor.execute(
-                    """SELECT meeting_id, message, timestamp FROM chat_messages
-                       WHERE email = ? AND meeting_id = ? ORDER BY timestamp""",
-                    (email, meeting_id)
-                )
-            else:
-                cursor.execute(
-                    """SELECT meeting_id, message, timestamp FROM chat_messages
-                       WHERE email = ? ORDER BY timestamp""",
-                    (email,)
-                )
-            return [{"meeting_id": row["meeting_id"], "message": row["message"], "timestamp": row["timestamp"]}
-                    for row in cursor.fetchall()]
+    # def get_user_messages(self, email, meeting_id=None):
+    #     """Get all messages by a user (optionally for a specific meeting)"""
+    #     if self.use_postgres:
+    #         with self.conn.cursor() as cur:
+    #             if meeting_id:
+    #                 cur.execute(
+    #                     """SELECT meeting_id, message, timestamp FROM chat_messages
+    #                        WHERE email = %s AND meeting_id = %s ORDER BY timestamp""",
+    #                     (email, meeting_id)
+    #                 )
+    #             else:
+    #                 cur.execute(
+    #                     """SELECT meeting_id, message, timestamp FROM chat_messages
+    #                        WHERE email = %s ORDER BY timestamp""",
+    #                     (email,)
+    #                 )
+    #             return [dict(row) for row in cur.fetchall()]
+    #     else:
+    #         cursor = self.conn.cursor()
+    #         if meeting_id:
+    #             cursor.execute(
+    #                 """SELECT meeting_id, message, timestamp FROM chat_messages
+    #                    WHERE email = ? AND meeting_id = ? ORDER BY timestamp""",
+    #                 (email, meeting_id)
+    #             )
+    #         else:
+    #             cursor.execute(
+    #                 """SELECT meeting_id, message, timestamp FROM chat_messages
+    #                    WHERE email = ? ORDER BY timestamp""",
+    #                 (email,)
+    #             )
+    #         return [{"meeting_id": row["meeting_id"], "message": row["message"], "timestamp": row["timestamp"]}
+    #                 for row in cursor.fetchall()]
 
 
 # Database singleton
