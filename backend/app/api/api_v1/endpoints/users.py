@@ -23,7 +23,7 @@ async def get_user(email: str):
     try:
         user = user_service.get_user(email)
     except:
-        raise HTTPException(status_code=500, detail="Failed to login")
+        raise HTTPException(status_code=500, detail="Failed to retrieve user")
 
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
