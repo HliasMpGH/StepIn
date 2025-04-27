@@ -80,23 +80,30 @@ backend/
 # Install dependencies
 pip install -r requirements.txt
 
-# Copy example environment file
-cp .env.example .env
-
-# Edit .env file with your configuration
+pip install -r backend/requirements.txt
 ```
 
+* Note: Place your postgres credentials on `backend/app/core/config.py`
+
 ### Running the Servers
+
+#### Redis Server
+
+```bash
+redis-server
+```
 
 #### Backend Server
 
 ```bash
+cd backend
 python -m uvicorn app.main:app --reload
 ```
 
 #### Frontend Server
 
 ```bash
+cd frontend
 npm run serve
 ```
 
