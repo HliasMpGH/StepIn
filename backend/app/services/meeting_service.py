@@ -54,7 +54,7 @@ class MeetingService:
                 )
 
             # Force a sync to make sure Redis is updated
-            self.sync_meetings()
+            self.sync_meetings() # maybe not needed
             return meeting_id
         except Exception as e:
             return {"error": f"Failed to create meeting: {str(e)}"}
@@ -118,9 +118,9 @@ class MeetingService:
             return {"error": "User not found"}
 
         # Check if meeting exists
-        meeting = self.db.get_meeting(meeting_id)
-        if not meeting:
-            return {"error": "Meeting not found"}
+        # meeting = self.db.get_meeting(meeting_id)
+        # if not meeting:
+        #     return {"error": "Meeting not found"}
 
         # Try to join meeting in Redis
         result = self.redis_mgr.join_meeting(email, meeting_id)
@@ -138,9 +138,9 @@ class MeetingService:
             return {"error": "User not found"}
 
         # Check if meeting exists
-        meeting = self.db.get_meeting(meeting_id)
-        if not meeting:
-            return {"error": "Meeting not found"}
+        # meeting = self.db.get_meeting(meeting_id)
+        # if not meeting:
+        #     return {"error": "Meeting not found"}
 
         # Try to leave meeting in Redis
         result = self.redis_mgr.leave_meeting(email, meeting_id)
@@ -153,17 +153,18 @@ class MeetingService:
     def get_meeting_participants(self, meeting_id):
         """Get participants who have joined a meeting"""
         # Check if the meeting exists
-        meeting = self.db.get_meeting(meeting_id)
-        if not meeting:
-            return {"error": "Could not find meeting"}
+        # meeting = self.db.get_meeting(meeting_id)
+        # if not meeting:
+        #     return {"error": "Could not find meeting"}
 
         return self.redis_mgr.get_joined_participants(meeting_id)
 
-    def get_active_meetings(self):
+    def get_active_meetings(self, force_sync=True):
         """Get all active meetings"""
 
-        # sync active meetings in redis to have the most recent state in-memory
-        self.sync_meetings()
+        if force_sync:
+            # sync active meetings in redis to have the most recent state in-memory
+            self.sync_meetings()
 
         redis_meetings = self.redis_mgr.get_active_meetings()
         print(f"Updated Redis active meetings: {redis_meetings}")
@@ -236,40 +237,43 @@ class MeetingService:
     def end_meeting(self, meeting_id):
         """End a meeting and log timeouts for remaining participants"""
         # Check if the meeting exists
-        meeting = self.db.get_meeting(meeting_id)
-        if not meeting:
-            return {"error": "Could not find meeting"}
+        # meeting = self.db.get_meeting(meeting_id)
+        # if not meeting:
+        #     return {"error": "Could not find meeting"}
 
         # Deactivate meeting and get remaining participants
-        remaining_participants = self.redis_mgr.deactivate_meeting(meeting_id)
+        result = self.redis_mgr.deactivate_meeting(meeting_id)
+
+        if isinstance(result, dict) and "error" in result:
+            return result # error message
 
         # Log timeout for remaining participants
-        for email in remaining_participants:
+        for email in result:
             self.db.log_action(email, meeting_id, TIME_OUT)
 
-        return remaining_participants
+        return result
 
     def get_meeting_messages(self, meeting_id):
         """Get all messages from a meeting chat"""
         # Check if the meeting exists
-        meeting = self.db.get_meeting(meeting_id)
-        if not meeting:
-            return {"error": "Could not find meeting"}
+        # meeting = self.db.get_meeting(meeting_id)
+        # if not meeting:
+        #     return {"error": "Could not find meeting"}
 
         return self.redis_mgr.get_meeting_messages(meeting_id)
 
     def get_user_messages(self, email, meeting_id=None):
         """Get all messages posted by a user"""
         # Check if the meeting exists
-        if meeting_id:
-            meeting = self.db.get_meeting(meeting_id)
-            if not meeting:
-                return {"error": "Could not find meeting"}
+        # if meeting_id:
+        #     meeting = self.db.get_meeting(meeting_id)
+        #     if not meeting:
+        #         return {"error": "Could not find meeting"}
 
         # Check if user exists
-        user = self.db.get_user(email)
-        if not user:
-            return {"error": "User not found"}
+        # user = self.db.get_user(email)
+        # if not user:
+        #     return {"error": "User not found"}
 
         return self.redis_mgr.get_user_meeting_messages(email, meeting_id)
 
@@ -277,6 +281,15 @@ class MeetingService:
         """
         Retrieve all meetings where the given email is listed as a participant.
         """
+
+        # try to find in cache
+        meeting_ids = self.redis_mgr.get_user_invited_meetings(email)
+
+        if meeting_ids:
+            return meeting_ids
+
+        # cache miss, retrieve from db
+
         # Query DB for meetings matching the user
         meetings = self.db.get_meetings_by_user(email)
 
@@ -298,12 +311,11 @@ class MeetingService:
             return None
 
         # If email is provided, ensure user is creator/participant
-        if email and email not in meeting.get("participants", ""):
+        if email and email not in meeting.get("participants", []):
             return {"error": "Not authorized to delete this meeting"}
 
         # Deactivate in Redis if active
-        if self.redis_mgr.redis_client.sismember(self.redis_mgr.active_meetings_key, str(meeting_id)):
-            self.redis_mgr.deactivate_meeting(meeting_id)
+        self.end_meeting(meeting_id)
 
         # Delete in DB
         result = self.db.delete_meeting(meeting_id)

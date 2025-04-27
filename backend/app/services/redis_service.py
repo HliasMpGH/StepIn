@@ -92,6 +92,11 @@ class RedisManager:
         # Convert to string for Redis
         meeting_id_str = str(meeting_id)
 
+        # Check if meeting is active
+        if not self.redis_client.sismember(self.active_meetings_key, meeting_id_str):
+            print(f"{meeting_id} is not active")
+            return {"error": f"Meeting {meeting_id} is not active"}
+
         # Remove from active meetings set
         self.redis_client.srem(self.active_meetings_key, meeting_id_str)
 
@@ -244,6 +249,12 @@ class RedisManager:
 
     def get_joined_participants(self, meeting_id):
         """Get list of emails of participants who have joined the meeting"""
+
+        # Check if meeting is active
+        if not self.redis_client.sismember(self.active_meetings_key, meeting_id):
+            print(f"{meeting_id} is not active")
+            return {"error": f"Meeting {meeting_id} is not active"}
+
         joined_key = f"{self.joined_prefix}{meeting_id}"
         return list(self.redis_client.smembers(joined_key))
 
@@ -272,6 +283,12 @@ class RedisManager:
 
     def get_meeting_messages(self, meeting_id):
         """Get all messages from a meeting chat in chronological order"""
+
+        # Check if meeting is active
+        if not self.redis_client.sismember(self.active_meetings_key, meeting_id):
+            print(f"{meeting_id} is not active")
+            return {"error": f"Meeting {meeting_id} is not active"}
+
         chat_key = f"{self.chat_prefix}{meeting_id}"
         messages = self.redis_client.lrange(chat_key, 0, -1)
         return [json.loads(msg) for msg in messages]
@@ -282,7 +299,7 @@ class RedisManager:
         if not meeting_id:
             meeting_id = self.get_user_joined_meeting(email)
             if not meeting_id:
-                return []
+                return [] # user not joined in any meeting
 
         # check if meeting is active
         if not self.redis_client.sismember(self.active_meetings_key, meeting_id):
@@ -309,6 +326,12 @@ class RedisManager:
         ]
 
         return user_messages
+
+    def get_user_invited_meetings(self, email):
+        """Get the meeting IDs that a user is a participant of"""
+        invited_meetings_key = f"{self.user_participate_meetings}{email}"
+        meetings_ids = self.redis_client.smembers(invited_meetings_key)
+        return meetings_ids
 
     def get_user_joined_meeting(self, email):
         """Get the meeting ID that a user has joined (if any)"""
