@@ -17,7 +17,6 @@ export default createStore({
     isAuthenticated: false,
     nearbyMeetings: [],
     activeMeetings: [],
-    upcomingMeetings: [],
     currentMeeting: null,
     joinedMeeting: null,
     meetingParticipants: [],
@@ -42,16 +41,12 @@ export default createStore({
     userCreatedMeetings: state => state.userCreatedMeetings,
     isLoading: state => state.loading,
     hasError: state => state.error !== null,
-    errorMessage: state => state.error,
-    upcomingMeetings: state => state.upcomingMeetings,
+    errorMessage: state => state.error
   },
   mutations: {
     SET_USER(state, user) {
       state.user = user
       state.isAuthenticated = user !== null
-    },
-    SET_UPCOMING_MEETINGS(state, meetings) {
-      state.upcomingMeetings = meetings
     },
     SET_NEARBY_MEETINGS(state, meetings) {
       state.nearbyMeetings = meetings
@@ -220,8 +215,6 @@ export default createStore({
           try {
             const response = await apiClient.get(`/meetings/${meetingId}${cacheParam}`)
             console.log(`Meeting ${meetingId} detail received:`, response.data)
-            // Add status information
-            response.data.status = 'active'
             meetings.push(response.data)
             return response.data
           } catch (err) {
@@ -351,80 +344,6 @@ export default createStore({
         commit('SET_ERROR', error.response?.data?.error || 'Error leaving meeting')
         commit('SET_LOADING', false)
         throw error
-      }
-    },
-    async getUpcomingMeetings({ commit }, { forceRefresh = false } = {}) {
-      try {
-        commit('SET_LOADING', true)
-
-        console.log(`Getting upcoming meetings... (forceRefresh=${forceRefresh})`)
-
-        // Add a cache buster parameter for forceRefresh
-        const cacheParam = forceRefresh ? `?cache=${Date.now()}` : ''
-
-        // Call the new API endpoint for upcoming meetings
-        const response = await apiClient.get(`/meetings/upcoming-test${cacheParam}`)
-        console.log('Upcoming meetings response:', response.data)
-
-        // Check if meetings array exists
-        if (!response.data.meetings) {
-          console.log('No upcoming meetings found in response')
-          commit('SET_UPCOMING_MEETINGS', [])
-          commit('SET_LOADING', false)
-          return []
-        }
-
-        console.log('Found upcoming meeting IDs:', response.data.meetings)
-
-        if (response.data.meetings.length === 0) {
-          console.log('Empty upcoming meetings array, returning empty list')
-          commit('SET_UPCOMING_MEETINGS', [])
-          commit('SET_LOADING', false)
-          return []
-        }
-
-        // Fetch details for each meeting with a retry mechanism
-        const meetings = []
-        const fetchMeetingWithRetry = async (meetingId, retries = 2) => {
-          try {
-            const response = await apiClient.get(`/meetings/${meetingId}${cacheParam}`)
-            console.log(`Upcoming meeting ${meetingId} detail received:`, response.data)
-            // Add status information
-            response.data.status = 'upcoming'
-            meetings.push(response.data)
-            return response.data
-          } catch (err) {
-            console.error(`Error fetching upcoming meeting ${meetingId}:`, err)
-            if (retries > 0) {
-              console.log(`Retrying fetch for upcoming meeting ${meetingId}, ${retries} retries left`)
-              await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms before retry
-              return fetchMeetingWithRetry(meetingId, retries - 1)
-            }
-            return null
-          }
-        }
-
-        // Fetch all meetings in parallel
-        const meetingPromises = response.data.meetings.map(meetingId =>
-          fetchMeetingWithRetry(meetingId)
-        )
-
-        // Wait for all fetches to complete
-        await Promise.all(meetingPromises)
-
-        // Filter out any null results from failed fetches
-        const validMeetings = meetings.filter(meeting => meeting !== null)
-
-        console.log('All upcoming meetings loaded:', validMeetings)
-        commit('SET_UPCOMING_MEETINGS', validMeetings)
-        commit('SET_LOADING', false)
-        return validMeetings
-      } catch (error) {
-        console.error('Error in getUpcomingMeetings:', error)
-        commit('SET_ERROR', error.response?.data?.detail || error.message || 'Error getting upcoming meetings')
-        commit('SET_UPCOMING_MEETINGS', [])
-        commit('SET_LOADING', false)
-        return [] // Return empty array instead of throwing error
       }
     },
     async getMeetingParticipants({ commit }, meetingId) {

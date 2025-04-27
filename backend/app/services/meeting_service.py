@@ -35,20 +35,23 @@ class MeetingService:
             if not meeting_id:
                 return {"error": "Could not load meeting in memory, after persistence"}
 
-            # Process meeting in Redis based on time
+            # Also activate in Redis for real-time operations
+            # Get current time in UTC
             now = datetime.now(timezone.utc)
 
-            # Always attempt to activate in Redis (it will handle categorization)
-            result = self.redis_mgr.activate_meeting(
-                meeting_id,
-                title,
-                description,
-                lat,
-                long,
-                participants,
-                t1_datetime,
-                t2_datetime
-            )
+            # Check if this is a current meeting
+            if t1_datetime < now < t2_datetime:
+                # Activate in Redis
+                result = self.redis_mgr.activate_meeting(
+                    meeting_id,
+                    title,
+                    description,
+                    lat,
+                    long,
+                    participants,
+                    t1_datetime,
+                    t2_datetime
+                )
 
             # Force a sync to make sure Redis is updated
             self.sync_meetings()
@@ -158,38 +161,23 @@ class MeetingService:
 
     def get_active_meetings(self):
         """Get all active meetings"""
+
         # sync active meetings in redis to have the most recent state in-memory
         self.sync_meetings()
+
         redis_meetings = self.redis_mgr.get_active_meetings()
         print(f"Updated Redis active meetings: {redis_meetings}")
-        return redis_meetings
 
-    def get_upcoming_meetings(self):
-        """Get all upcoming meetings"""
-        print("MeetingService.get_upcoming_meetings called")
-        # Sync meetings to make sure Redis is up to date
-        self.sync_meetings()
-        redis_meetings = self.redis_mgr.get_upcoming_meetings()
-        print(f"Redis returned upcoming meetings: {redis_meetings}, Type: {type(redis_meetings)}")
+        # # Extra validation - return all active meetings from DB if Redis is empty after sync
+        # if not redis_meetings and db_meetings:
+        #     print("Warning: Redis still has no meetings after sync, returning DB meetings")
+        #     return db_meetings
 
-        if isinstance(redis_meetings, set):
-            print("Converting set to list")
-            redis_meetings = list(redis_meetings)
-
-        if redis_meetings and all(isinstance(item, str) for item in redis_meetings):
-            print("Converting string IDs to integers")
-            redis_meetings = [int(mid) for mid in redis_meetings]
-
-        print(f"Returning upcoming meetings: {redis_meetings}, Type: {type(redis_meetings)}")
         return redis_meetings
 
     def _get_active_meetings_from_db(self):
         """Get active meetings directly from the database"""
         return self.db.get_active_meetings()
-
-    def _get_upcoming_meetings_from_db(self):
-        """Get upcoming meetings directly from the database"""
-        return self.db.get_upcoming_meetings()
 
     def _activate_meeting_in_redis(self, meeting_id):
         """Activate a meeting in Redis from the database"""
@@ -198,7 +186,7 @@ class MeetingService:
             return {"error": "Could not find meeting"}
 
         # Activate meeting in Redis
-        return self.redis_mgr.activate_meeting(
+        self.redis_mgr.activate_meeting(
             meeting_id,
             meeting["title"],
             meeting["description"],
@@ -209,64 +197,41 @@ class MeetingService:
             meeting["t2"]
         )
 
-
     def sync_meetings(self):
         """Force a sync to make sure Redis and DB are in sync"""
-        try:
-            # Get current active and upcoming meetings from database
-            db_active_meetings = self._get_active_meetings_from_db()
-            db_upcoming_meetings = self._get_upcoming_meetings_from_db()
 
-            # Get active and upcoming meetings in redis
-            redis_active_meetings = self.redis_mgr.get_active_meetings()
-            redis_upcoming_meetings = self.redis_mgr.get_upcoming_meetings()
+        # Get current active meetings from database
+        db_meetings = self._get_active_meetings_from_db()
+        # Get active meetings in redis
+        redis_meetings = self.redis_mgr.get_active_meetings()
 
-            # Find meetings in DB but not in Redis
-            db_active_ids = set(str(mid) for mid in db_active_meetings)
-            db_upcoming_ids = set(str(mid) for mid in db_upcoming_meetings)
-            redis_active_ids = set(str(mid) for mid in redis_active_meetings)
-            redis_upcoming_ids = set(str(mid) for mid in redis_upcoming_meetings)
+        # Find meetings in DB but not in Redis
+        db_meeting_ids = set(db_meetings)
+        redis_meeting_ids = set(redis_meetings)
 
-            # Log current state
-            print(f"DB active meetings: {db_active_ids}")
-            print(f"DB upcoming meetings: {db_upcoming_ids}")
-            print(f"Redis active meetings: {redis_active_ids}")
-            print(f"Redis upcoming meetings: {redis_upcoming_ids}")
+        # Log current state
+        print(f"DB active meetings: {db_meeting_ids}")
+        print(f"Redis active meetings: {redis_meeting_ids}")
 
-            meetings_to_end = self.redis_mgr.sync_meeting_status()
-            for meeting_id in meetings_to_end:
-                result = self.end_meeting(int(meeting_id))
-                print(f"Meeting {meeting_id} ended during sync: {result}")
+        # Meetings to add to Redis
+        meetings_to_add = db_meeting_ids - redis_meeting_ids
+        if meetings_to_add:
+            print(f"Syncing {len(meetings_to_add)} meetings from DB to Redis: {meetings_to_add}")
+            for meeting_id in meetings_to_add:
+                result = self._activate_meeting_in_redis(meeting_id)
+                if isinstance(result, dict) and "error" in result:
+                    raise ValueError(f"Error while activating meeting: {result['error']}")
+                print(f"Activated meeting {meeting_id} in Redis")
 
-            # Meetings to add to Redis (in DB but not in Redis)
-            db_all_meeting_ids = db_active_ids.union(db_upcoming_ids)
-            redis_all_meeting_ids = redis_active_ids.union(redis_upcoming_ids)
-            meetings_to_add = db_all_meeting_ids - redis_all_meeting_ids
-
-            if meetings_to_add:
-                print(f"Syncing {len(meetings_to_add)} meetings from DB to Redis: {meetings_to_add}")
-                for meeting_id in meetings_to_add:
-                    result = self._activate_meeting_in_redis(int(meeting_id))
-                    if isinstance(result, dict) and "error" in result:
-                        print(f"Error while activating meeting: {result['error']}")
-                    else:
-                        print(f"Activated meeting {meeting_id} in Redis")
-
-            # Meetings to remove from Redis (in Redis but not in DB)
-            meetings_to_remove = redis_all_meeting_ids - db_all_meeting_ids
-            if meetings_to_remove:
-                print(f"Removing {len(meetings_to_remove)} meetings from Redis: {meetings_to_remove}")
-                for meeting_id in meetings_to_remove:
-                    result = self.end_meeting(int(meeting_id))
-                    if isinstance(result, dict) and "error" in result:
-                        print(f"Error while deactivating meeting: {result['error']}")
-                    else:
-                        print(f"Deactivated meeting {meeting_id} in Redis: {result}")
-
-            return True
-        except Exception as e:
-            print(f"Error in sync_meetings: {e}")
-            return False
+        # also do a sync to remove inactive meetings from redis
+        meetings_to_remove = redis_meeting_ids - db_meeting_ids
+        if meetings_to_remove:
+            print(f"Removing {len(meetings_to_remove)} meetings from Redis: {meetings_to_remove}")
+            for meeting_id in meetings_to_remove:
+                result = self.end_meeting(meeting_id)
+                if isinstance(result, dict) and "error" in result:
+                    raise ValueError(f"Error while deactivating meeting: {result['error']}")
+                print(f"Deactivated meeting {meeting_id} in Redis: {result}")
 
     def end_meeting(self, meeting_id):
         """End a meeting and log timeouts for remaining participants"""

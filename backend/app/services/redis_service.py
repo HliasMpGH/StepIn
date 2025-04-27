@@ -2,10 +2,9 @@ import json
 import redis
 import fakeredis
 from geopy.distance import geodesic
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.core.config import settings
-from app.core.constants import JOIN_MEETING, LEAVE_MEETING, TIME_OUT
 
 class RedisManager:
     def __init__(self, fake=None):
@@ -24,7 +23,6 @@ class RedisManager:
 
         # Redis keys
         self.active_meetings_key = "active_meetings"  # Set of active meeting IDs
-        self.upcoming_meetings_key = "upcoming_meetings"  # Set of upcoming meeting IDs
         self.meeting_prefix = "meeting:"  # Prefix for meeting hash
         self.meeting_positions_key = "meeting_positions" # Key for meetings geospatials
         self.participants_prefix = "participants:"  # Prefix for participants set
@@ -37,43 +35,29 @@ class RedisManager:
         """Activate a meeting in Redis"""
         print(f"Activating meeting in Redis: ID={meeting_id}, title={title}")
 
-        # Convert meeting_id to string for Redis
-        meeting_id_str = str(meeting_id)
-
         # Store meeting details
         meeting_key = f"{self.meeting_prefix}{meeting_id}"
         meeting_data = {
+            # "id": meeting_id,
             "title": title,
             "description": description,
+            # "lat": lat,
+            # "long": long,
+            # "participants": participants,
             "t1": t1.isoformat() if isinstance(t1, datetime) else t1,
             "t2": t2.isoformat() if isinstance(t2, datetime) else t2
         }
         self.redis_client.hset(meeting_key, mapping=meeting_data)
 
         # Add geoposition of meeting
-        self.redis_client.geoadd(self.meeting_positions_key, [long, lat, meeting_id_str])
+        self.redis_client.geoadd(self.meeting_positions_key, [lat, long, meeting_id])
 
         print(f"ADDED GEOSPATIAL")
         print(self.redis_client.zrange(self.meeting_positions_key, 0, -1))
 
-        # Get current time in UTC
-        now = datetime.now(timezone.utc)
-        t1_dt = t1 if isinstance(t1, datetime) else datetime.fromisoformat(t1.replace('Z', '+00:00'))
-        t2_dt = t2 if isinstance(t2, datetime) else datetime.fromisoformat(t2.replace('Z', '+00:00'))
-
-        # Determine if meeting is active now or upcoming
-        if t1_dt <= now <= t2_dt:
-            # Current active meeting
-            self.redis_client.sadd(self.active_meetings_key, meeting_id_str)
-            print(f"Meeting {meeting_id} added to active meetings set")
-        elif t1_dt > now:
-            # Upcoming meeting
-            self.redis_client.sadd(self.upcoming_meetings_key, meeting_id_str)
-            print(f"Meeting {meeting_id} added to upcoming meetings set")
-        else:
-            # Meeting is in the past, don't add to any set
-            print(f"Meeting {meeting_id} is in the past, not adding to any set")
-            return False
+        # Add to active meetings set - convert meeting_id to string for Redis
+        meeting_id_str = str(meeting_id)
+        self.redis_client.sadd(self.active_meetings_key, meeting_id_str)
 
         # Initialize participants set
         participants_key = f"{self.participants_prefix}{meeting_id}"
@@ -85,7 +69,7 @@ class RedisManager:
 
                 # add meeting to the participated meetings of user (secondary index)
                 user_participate_key = f"{self.user_participate_meetings}{email_clean}"
-                self.redis_client.sadd(user_participate_key, meeting_id_str)
+                self.redis_client.sadd(user_participate_key, meeting_id)
 
                 print(f"{email_clean} participated meetings: {self.redis_client.smembers(user_participate_key)}")
 
@@ -97,13 +81,9 @@ class RedisManager:
         chat_key = f"{self.chat_prefix}{meeting_id}"
         self.redis_client.delete(chat_key)  # Ensure it's empty
 
-        # Verify the meeting was added to the appropriate set
-        if t1_dt <= now <= t2_dt:
-            is_active = self.redis_client.sismember(self.active_meetings_key, meeting_id_str)
-            print(f"Meeting {meeting_id} active status in Redis: {is_active}")
-        else:
-            is_upcoming = self.redis_client.sismember(self.upcoming_meetings_key, meeting_id_str)
-            print(f"Meeting {meeting_id} upcoming status in Redis: {is_upcoming}")
+        # Verify the meeting was added
+        is_active = self.redis_client.sismember(self.active_meetings_key, meeting_id_str)
+        print(f"Meeting {meeting_id} active status in Redis: {is_active}")
 
         return True
 
@@ -112,9 +92,8 @@ class RedisManager:
         # Convert to string for Redis
         meeting_id_str = str(meeting_id)
 
-        # Remove from active and upcoming meetings sets
+        # Remove from active meetings set
         self.redis_client.srem(self.active_meetings_key, meeting_id_str)
-        self.redis_client.srem(self.upcoming_meetings_key, meeting_id_str)
 
         # Remove from geopositions
         self.redis_client.zrem(self.meeting_positions_key, meeting_id_str)
@@ -139,7 +118,7 @@ class RedisManager:
         # For each participant, remove this meeting from their participated meetings, and chats
         for email in self.redis_client.smembers(participants_key):
             user_participate_key = f"{self.user_participate_meetings}{email}"
-            self.redis_client.srem(user_participate_key, meeting_id_str)
+            self.redis_client.srem(user_participate_key, meeting_id)
             self.redis_client.delete(f"{chat_key}:{email}") # remove messages indices of user
             print(f"removed {meeting_id} from {email}")
             print(f"{email} participated meetings: {self.redis_client.smembers(user_participate_key)}")
@@ -152,9 +131,6 @@ class RedisManager:
 
     def get_meeting_by_id(self, meeting_id):
         """Get meeting attributes from a given a meeting id"""
-        # Convert to string for Redis
-        meeting_id_str = str(meeting_id)
-
         # get the basic meeting attributes
         meeting_key = f"{self.meeting_prefix}{meeting_id}"
         meeting = self.redis_client.hgetall(meeting_key)
@@ -163,12 +139,7 @@ class RedisManager:
             return None
 
         # get the position of the meeting
-        pos = self.redis_client.geopos(self.meeting_positions_key, meeting_id_str)
-        if not pos or not pos[0]:
-            # Position not found
-            return None
-
-        long, lat = pos[0]
+        long, lat = self.redis_client.geopos(self.meeting_positions_key, meeting_id)[0]
 
         # get the participants of the meeting
         meeting_participants_key = f"{self.participants_prefix}{meeting_id}"
@@ -176,8 +147,8 @@ class RedisManager:
 
         # add all the attributes together
         meeting["meeting_id"] = meeting_id
-        meeting["long"] = float(long)
-        meeting["lat"] = float(lat)
+        meeting["long"] = long
+        meeting["lat"] = lat
         meeting["participants"] = participants
 
         return meeting
@@ -192,63 +163,8 @@ class RedisManager:
         print(f"Converted Redis active meetings: {result}")
         return result
 
-    def get_upcoming_meetings(self):
-        """Get list of all upcoming meeting IDs"""
-        meetings = self.redis_client.smembers(self.upcoming_meetings_key)
-        print(f"Redis smembers returned: {meetings}, Type: {type(meetings)}")
-
-        # Convert string IDs to integers
-        result = [int(m) for m in meetings] if meetings else []
-        print(f"Converted Redis upcoming meetings: {result}, Type: {type(result)}")
-        return result
-
-    def sync_meeting_status(self):
-        """Update meeting status based on current time"""
-        now = datetime.now(timezone.utc)
-
-        # Check upcoming meetings to see if any should be active now
-        upcoming_meetings = self.redis_client.smembers(self.upcoming_meetings_key)
-        for meeting_id in upcoming_meetings:
-            meeting_key = f"{self.meeting_prefix}{meeting_id}"
-            t1_str = self.redis_client.hget(meeting_key, "t1")
-            t2_str = self.redis_client.hget(meeting_key, "t2")
-
-            if not t1_str or not t2_str:
-                continue
-
-            t1 = datetime.fromisoformat(t1_str.replace('Z', '+00:00'))
-            t2 = datetime.fromisoformat(t2_str.replace('Z', '+00:00'))
-
-            if t1 <= now <= t2:
-                # Move from upcoming to active
-                self.redis_client.srem(self.upcoming_meetings_key, meeting_id)
-                self.redis_client.sadd(self.active_meetings_key, meeting_id)
-                print(f"Meeting {meeting_id} moved from upcoming to active")
-
-        # Check active meetings to see if any are now over
-        active_meetings = self.redis_client.smembers(self.active_meetings_key)
-        meetings_to_end = []
-
-        for meeting_id in active_meetings:
-            meeting_key = f"{self.meeting_prefix}{meeting_id}"
-            t2_str = self.redis_client.hget(meeting_key, "t2")
-
-            if not t2_str:
-                continue
-
-            t2 = datetime.fromisoformat(t2_str.replace('Z', '+00:00'))
-
-            if now > t2:
-                # Meeting is over - collect for ending
-                meetings_to_end.append(meeting_id)
-
-        return meetings_to_end
-
     def get_nearby_meetings_for_user(self, email, x, y, max_distance=100):
         """Get active meetings near user's location where user is a participant"""
-        # Convert coordinates to floats if they're strings
-        x = float(x)
-        y = float(y)
 
         # get all nearby meetings of (x, y) using meters
         nearby_meetings = self.redis_client.geosearch(
@@ -259,28 +175,19 @@ class RedisManager:
             unit="m"
         )
 
+
         user_participate_key = f"{self.user_participate_meetings}{email}"
         meetings_participate = self.redis_client.smembers(user_participate_key)
 
-        # Get active meetings
-        active_meetings = self.redis_client.smembers(self.active_meetings_key)
 
-        # Convert to consistent type - strings for Redis operations
+        # Convert to consistent type
         nearby_meetings_str = set(str(m) for m in nearby_meetings)
-        active_meetings_str = set(str(m) for m in active_meetings)
 
-        # Filter for only active meetings
-        nearby_active_meetings = nearby_meetings_str & active_meetings_str
-
-        # Filter for meetings the user participates in
-        result = nearby_active_meetings & meetings_participate
-
-        return result
+        # the intersection of these sets are the nearby meetings the user can join
+        return nearby_meetings_str & meetings_participate
 
     def join_meeting(self, email, meeting_id):
         """User joins a meeting"""
-        # Convert to string for Redis
-        meeting_id_str = str(meeting_id)
 
         # Check if user is on other meeting
         user_meetings_key = f"{self.user_joined_meeting}{email}"
@@ -289,7 +196,7 @@ class RedisManager:
             return {"error": "You are already joined in another meeting"}
 
         # Check if meeting is active
-        if not self.redis_client.sismember(self.active_meetings_key, meeting_id_str):
+        if not self.redis_client.sismember(self.active_meetings_key, meeting_id):
             print(f"{meeting_id} is not active")
             return {"error": f"Meeting {meeting_id} is not active"}
 
@@ -306,23 +213,20 @@ class RedisManager:
         print(f"{email} joined meeting {meeting_id}")
         # Set meeting to user's joined meeting
 
-        self.redis_client.set(user_meetings_key, meeting_id_str)
+        self.redis_client.set(user_meetings_key, meeting_id)
         print(f"all good. User joined meeting: {self.redis_client.get(user_meetings_key)}")
-        return True
 
     def leave_meeting(self, email, meeting_id):
         """User leaves a meeting"""
-        # Convert to string for Redis
-        meeting_id_str = str(meeting_id)
 
         # Check if user is in the meeting
         user_meetings_key = f"{self.user_joined_meeting}{email}"
-        if self.redis_client.get(user_meetings_key) != meeting_id_str:
+        if self.redis_client.get(user_meetings_key) != str(meeting_id):
             print(f"{email} is not joined in meeting {self.redis_client.get(user_meetings_key)}")
             return {"error": "You are not joined in the meeting"}
 
         # Check if meeting is active
-        if not self.redis_client.sismember(self.active_meetings_key, meeting_id_str):
+        if not self.redis_client.sismember(self.active_meetings_key, meeting_id):
             print(f"{meeting_id} is not active")
             return {"error": f"Meeting {meeting_id} is not active"}
 
@@ -337,8 +241,6 @@ class RedisManager:
 
         if result <= 0:
             return {"error": f"User not part of joined participants"}
-
-        return True
 
     def get_joined_participants(self, meeting_id):
         """Get list of emails of participants who have joined the meeting"""
@@ -367,8 +269,6 @@ class RedisManager:
         # Add message index to chat list of user
         user_chat_key = f"{chat_key}:{email}"
         self.redis_client.rpush(user_chat_key, position)
-
-        return True
 
     def get_meeting_messages(self, meeting_id):
         """Get all messages from a meeting chat in chronological order"""

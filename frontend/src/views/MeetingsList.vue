@@ -193,44 +193,19 @@ export default {
       loading.value = true;
       try {
         console.log('Fetching meetings...');
-
-        let activeResponse = [];
-        let upcomingResponse = [];
-
-        try {
-          activeResponse = await store.dispatch('getActiveMeetings', { forceRefresh: true });
-          console.log('Active meetings response:', activeResponse);
-        } catch (activeError) {
-          console.error('Error fetching active meetings:', activeError);
-          toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: 'Failed to fetch active meetings',
-            life: 3000
-          });
-        }
-
-        try {
-          upcomingResponse = await store.dispatch('getUpcomingMeetings', { forceRefresh: true });
-          console.log('Upcoming meetings response:', upcomingResponse);
-        } catch (upcomingError) {
-          console.error('Error fetching upcoming meetings:', upcomingError);
-          toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: 'Failed to fetch upcoming meetings',
-            life: 3000
-          });
-        }
-
-        activeMeetings.value = activeResponse || [];
-        upcomingMeetings.value = upcomingResponse || [];
-
-        activeMeetings.value.sort((a, b) => new Date(a.t1) - new Date(b.t1));
-        upcomingMeetings.value.sort((a, b) => new Date(a.t1) - new Date(b.t1));
-
+        // Fetch active meetings from API
+        const response = await store.dispatch('getActiveMeetings', { forceRefresh: true });
+        console.log('Meetings response:', response);
+        const now = new Date();
+        // Use response or empty array
+        activeMeetings.value = response || [];
+        // Sort meetings to show most recent first
+        activeMeetings.value.sort((a, b) => new Date(b.t1) - new Date(a.t1));
+        // Separate upcoming meetings
+        upcomingMeetings.value = activeMeetings.value.filter(meeting => new Date(meeting.t1) > now);
       } catch (error) {
-        console.error('General error in fetchMeetings:', error);
+        console.error('Error fetching meetings:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to fetch meetings', life: 3000 });
         activeMeetings.value = [];
         upcomingMeetings.value = [];
       } finally {

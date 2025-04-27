@@ -344,128 +344,96 @@ class Database:
             result = [row["meeting_id"] for row in rows]
             print(f"SQLite active meetings: {result}")
             return result
-        
-    def get_upcoming_meetings(self):
-        """Get list of upcoming meeting IDs (meetings where t1 is in the future)"""
-        current_time = datetime.now(timezone.utc)
-        print(f"Current time for upcoming meetings check: {current_time}")
 
+    def log_action(self, email, meeting_id, action):
+        """Log a user action for a meeting"""
         if self.use_postgres:
             with self.conn.cursor() as cur:
                 cur.execute(
-                    """SELECT meeting_id FROM meetings
-                    WHERE t1 > %s""",
-                    (current_time,)
+                    "INSERT INTO logs (email, meeting_id, action) VALUES (%s, %s, %s)",
+                    (email, meeting_id, action)
                 )
-                result = [row["meeting_id"] for row in cur.fetchall()]
-                print(f"PostgreSQL upcoming meetings: {result}")
-                return result
+                self.conn.commit()
+                return True
         else:
-            cursor = self.conn.cursor()
-            cursor.execute(
-                """SELECT meeting_id, title, t1, t2 FROM meetings
-                WHERE t1 > ?""",
-                (current_time,)
-            )
-            rows = cursor.fetchall()
+            with self.conn:
+                self.conn.execute(
+                    "INSERT INTO logs (email, meeting_id, action) VALUES (?, ?, ?)",
+                    (email, meeting_id, action)
+                )
+                return True
 
-            # Debug output
-            for row in rows:
-                print(f"Upcoming Meeting {row['meeting_id']} ({row['title']}): t1={row['t1']}, t2={row['t2']}")
+    # def save_chat_message(self, meeting_id, email, message):
+    #     """Save a chat message"""
+    #     if self.use_postgres:
+    #         with self.conn.cursor() as cur:
+    #             cur.execute(
+    #                 "INSERT INTO chat_messages (meeting_id, email, message) VALUES (%s, %s, %s)",
+    #                 (meeting_id, email, message)
+    #             )
+    #             self.conn.commit()
+    #             return True
+    #     else:
+    #         with self.conn:
+    #             self.conn.execute(
+    #                 "INSERT INTO chat_messages (meeting_id, email, message) VALUES (?, ?, ?)",
+    #                 (meeting_id, email, message)
+    #             )
+    #             return True
 
-            result = [row["meeting_id"] for row in rows]
-            print(f"SQLite upcoming meetings: {result}")
-            return result
+    # def get_meeting_messages(self, meeting_id):
+    #     """Get all messages for a meeting"""
+    #     if self.use_postgres:
+    #         with self.conn.cursor() as cur:
+    #             cur.execute(
+    #                 """SELECT email, message, timestamp FROM chat_messages
+    #                    WHERE meeting_id = %s ORDER BY timestamp""",
+    #                 (meeting_id,)
+    #             )
+    #             return [dict(row) for row in cur.fetchall()]
+    #     else:
+    #         cursor = self.conn.cursor()
+    #         cursor.execute(
+    #             """SELECT email, message, timestamp FROM chat_messages
+    #                WHERE meeting_id = ? ORDER BY timestamp""",
+    #             (meeting_id,)
+    #         )
+    #         return [{"email": row["email"], "message": row["message"], "timestamp": row["timestamp"]}
+    #                 for row in cursor.fetchall()]
 
-        def log_action(self, email, meeting_id, action):
-            """Log a user action for a meeting"""
-            if self.use_postgres:
-                with self.conn.cursor() as cur:
-                    cur.execute(
-                        "INSERT INTO logs (email, meeting_id, action) VALUES (%s, %s, %s)",
-                        (email, meeting_id, action)
-                    )
-                    self.conn.commit()
-                    return True
-            else:
-                with self.conn:
-                    self.conn.execute(
-                        "INSERT INTO logs (email, meeting_id, action) VALUES (?, ?, ?)",
-                        (email, meeting_id, action)
-                    )
-                    return True
-
-        # def save_chat_message(self, meeting_id, email, message):
-        #     """Save a chat message"""
-        #     if self.use_postgres:
-        #         with self.conn.cursor() as cur:
-        #             cur.execute(
-        #                 "INSERT INTO chat_messages (meeting_id, email, message) VALUES (%s, %s, %s)",
-        #                 (meeting_id, email, message)
-        #             )
-        #             self.conn.commit()
-        #             return True
-        #     else:
-        #         with self.conn:
-        #             self.conn.execute(
-        #                 "INSERT INTO chat_messages (meeting_id, email, message) VALUES (?, ?, ?)",
-        #                 (meeting_id, email, message)
-        #             )
-        #             return True
-
-        # def get_meeting_messages(self, meeting_id):
-        #     """Get all messages for a meeting"""
-        #     if self.use_postgres:
-        #         with self.conn.cursor() as cur:
-        #             cur.execute(
-        #                 """SELECT email, message, timestamp FROM chat_messages
-        #                    WHERE meeting_id = %s ORDER BY timestamp""",
-        #                 (meeting_id,)
-        #             )
-        #             return [dict(row) for row in cur.fetchall()]
-        #     else:
-        #         cursor = self.conn.cursor()
-        #         cursor.execute(
-        #             """SELECT email, message, timestamp FROM chat_messages
-        #                WHERE meeting_id = ? ORDER BY timestamp""",
-        #             (meeting_id,)
-        #         )
-        #         return [{"email": row["email"], "message": row["message"], "timestamp": row["timestamp"]}
-        #                 for row in cursor.fetchall()]
-
-        # def get_user_messages(self, email, meeting_id=None):
-        #     """Get all messages by a user (optionally for a specific meeting)"""
-        #     if self.use_postgres:
-        #         with self.conn.cursor() as cur:
-        #             if meeting_id:
-        #                 cur.execute(
-        #                     """SELECT meeting_id, message, timestamp FROM chat_messages
-        #                        WHERE email = %s AND meeting_id = %s ORDER BY timestamp""",
-        #                     (email, meeting_id)
-        #                 )
-        #             else:
-        #                 cur.execute(
-        #                     """SELECT meeting_id, message, timestamp FROM chat_messages
-        #                        WHERE email = %s ORDER BY timestamp""",
-        #                     (email,)
-        #                 )
-        #             return [dict(row) for row in cur.fetchall()]
-        #     else:
-        #         cursor = self.conn.cursor()
-        #         if meeting_id:
-        #             cursor.execute(
-        #                 """SELECT meeting_id, message, timestamp FROM chat_messages
-        #                    WHERE email = ? AND meeting_id = ? ORDER BY timestamp""",
-        #                 (email, meeting_id)
-        #             )
-        #         else:
-        #             cursor.execute(
-        #                 """SELECT meeting_id, message, timestamp FROM chat_messages
-        #                    WHERE email = ? ORDER BY timestamp""",
-        #                 (email,)
-        #             )
-        #         return [{"meeting_id": row["meeting_id"], "message": row["message"], "timestamp": row["timestamp"]}
-        #                 for row in cursor.fetchall()]
+    # def get_user_messages(self, email, meeting_id=None):
+    #     """Get all messages by a user (optionally for a specific meeting)"""
+    #     if self.use_postgres:
+    #         with self.conn.cursor() as cur:
+    #             if meeting_id:
+    #                 cur.execute(
+    #                     """SELECT meeting_id, message, timestamp FROM chat_messages
+    #                        WHERE email = %s AND meeting_id = %s ORDER BY timestamp""",
+    #                     (email, meeting_id)
+    #                 )
+    #             else:
+    #                 cur.execute(
+    #                     """SELECT meeting_id, message, timestamp FROM chat_messages
+    #                        WHERE email = %s ORDER BY timestamp""",
+    #                     (email,)
+    #                 )
+    #             return [dict(row) for row in cur.fetchall()]
+    #     else:
+    #         cursor = self.conn.cursor()
+    #         if meeting_id:
+    #             cursor.execute(
+    #                 """SELECT meeting_id, message, timestamp FROM chat_messages
+    #                    WHERE email = ? AND meeting_id = ? ORDER BY timestamp""",
+    #                 (email, meeting_id)
+    #             )
+    #         else:
+    #             cursor.execute(
+    #                 """SELECT meeting_id, message, timestamp FROM chat_messages
+    #                    WHERE email = ? ORDER BY timestamp""",
+    #                 (email,)
+    #             )
+    #         return [{"meeting_id": row["meeting_id"], "message": row["message"], "timestamp": row["timestamp"]}
+    #                 for row in cursor.fetchall()]
 
 
 # Database singleton

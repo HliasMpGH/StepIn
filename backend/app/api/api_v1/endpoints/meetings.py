@@ -162,45 +162,6 @@ async def leave_meeting(meeting_id: int, request: JoinLeaveRequest):
     return SuccessResponse()
 
 
-@router.get("/upcoming", response_model=None)  # Αφαιρώ το response_model προσωρινά
-async def upcoming_meetings():
-    try:
-        meetings = meeting_service.get_upcoming_meetings()
-        if meetings is None:
-            meetings = []
-
-        return {"meetings": meetings}
-    except Exception as e:
-        print(f"Error in upcoming_meetings: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve upcoming meetings")
-
-    try:
-
-        meetings = meeting_service.get_upcoming_meetings()
-
-        if meetings is None:
-            meetings_list = []
-        elif isinstance(meetings, set):
-            meetings_list = [int(m) for m in meetings]
-        elif isinstance(meetings, list):
-
-            meetings_list = [int(m) if isinstance(m, str) else m for m in meetings]
-        else:
-
-            meetings_list = list(meetings)
-
-        print(f"Final meetings list: {meetings_list}, type: {type(meetings_list)}")
-
-        result = {"meetings": meetings_list}
-        print(f"Final JSON result: {result}")
-
-        return result
-    except Exception as e:
-        import traceback
-        print(f"Error in upcoming_meetings: {str(e)}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve upcoming meetings: {str(e)}")
-
 @router.get("/{meeting_id}/participants", response_model=ParticipantListResponse)
 async def meeting_participants(meeting_id: int):
     try:
