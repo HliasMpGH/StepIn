@@ -166,21 +166,10 @@ class MeetingService:
 
     def get_upcoming_meetings(self):
         """Get all upcoming meetings"""
-        print("MeetingService.get_upcoming_meetings called")
         # Sync meetings to make sure Redis is up to date
         self.sync_meetings()
         redis_meetings = self.redis_mgr.get_upcoming_meetings()
-        print(f"Redis returned upcoming meetings: {redis_meetings}, Type: {type(redis_meetings)}")
-
-        if isinstance(redis_meetings, set):
-            print("Converting set to list")
-            redis_meetings = list(redis_meetings)
-
-        if redis_meetings and all(isinstance(item, str) for item in redis_meetings):
-            print("Converting string IDs to integers")
-            redis_meetings = [int(mid) for mid in redis_meetings]
-
-        print(f"Returning upcoming meetings: {redis_meetings}, Type: {type(redis_meetings)}")
+        print(f"Updated Redis upcoming meetings: {redis_meetings}")
         return redis_meetings
 
     def _get_active_meetings_from_db(self):
