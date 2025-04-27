@@ -1,8 +1,11 @@
 from app.db.database import get_database
+from app.services.redis_service import get_redis_manager
+from app.core.constants import LEAVE_MEETING
 
 class UserService:
     def __init__(self):
         self.db = get_database()
+        self.redis_mgr = get_redis_manager()
 
     def create_user(self, email, name, age, gender):
         """Create a new user"""
@@ -47,12 +50,14 @@ class UserService:
     def delete_user(self, email):
         """Delete a user"""
 
-        # Check if user exists
-        user = self.get_user(email)
-        if not user:
-            return None
+        # delete user from cache
+        user_joined_meeting = self.redis_mgr.delete_user(email)
 
-        # Delete the user
+        # if user was on a meeting, log a leave action
+        if user_joined_meeting:
+            self.db.log_action(email, user_joined_meeting, LEAVE_MEETING)
+
+        # delete user from db
         result = self.db.delete_user(email)
 
         if isinstance(result, dict) and "error" in result:

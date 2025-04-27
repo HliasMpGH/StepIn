@@ -339,6 +339,24 @@ class RedisManager:
         meeting_id = self.redis_client.get(user_meeting_key)
         return meeting_id
 
+    def delete_user(self, email):
+        """
+        User is deleted from cache. His messages and persistence
+        on meetings does not get removed.
+        """
+
+        # remove user from joined meeting if any
+        joined_meeting_id = self.get_user_joined_meeting(email)
+        if joined_meeting_id:
+            self.leave_meeting(email, joined_meeting_id)
+
+        # remove invited meetings key
+        self.redis_client.delete(
+            f"{self.user_participate_meetings}{email}"
+        )
+
+        # return the meeting the use was joined in for logging purposes
+        return joined_meeting_id
 
 # Redis manager singleton
 _redis_instance = None
