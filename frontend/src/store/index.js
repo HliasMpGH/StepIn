@@ -363,7 +363,7 @@ export default createStore({
         const cacheParam = forceRefresh ? `?cache=${Date.now()}` : ''
 
         // Call the new API endpoint for upcoming meetings
-        const response = await apiClient.get(`/meetings/upcoming${cacheParam}`)
+        const response = await apiClient.get(`/meetings/upcoming-test${cacheParam}`)
         console.log('Upcoming meetings response:', response.data)
 
         // Check if meetings array exists
