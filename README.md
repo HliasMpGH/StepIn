@@ -86,14 +86,18 @@ cp .env.example .env
 # Edit .env file with your configuration
 ```
 
-### Running
+### Running the Servers
+
+#### Backend Server
 
 ```bash
-# Development with auto-reload
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
+```
 
-# Production
-uvicorn app.main:app
+#### Frontend Server
+
+```bash
+npm run serve
 ```
 
 ### API Documentation
