@@ -13,10 +13,10 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api"
     SECRET_KEY: str = secrets.token_urlsafe(32)
-    
+
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
-    
+
     # CORS settings
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
 
@@ -29,22 +29,22 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # Database settings
-    USE_POSTGRES: bool = False
+    USE_POSTGRES: bool = True
     DB_PATH: str = "stepin.db"  # For SQLite
     DB_HOST: str = "localhost"  # For PostgreSQL
     DB_NAME: str = "stepin"     # For PostgreSQL
     DB_USER: str = "postgres"   # For PostgreSQL
     DB_PASSWORD: str = "postgres"  # For PostgreSQL
-    
+
     # Redis settings
-    USE_FAKE_REDIS: bool = True
+    USE_FAKE_REDIS: bool = False
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
-    
+
     # Application settings
     PORT: int = 8000
-    
+
     class Config:
         case_sensitive = True
         env_file = ".env"
