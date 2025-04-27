@@ -71,9 +71,7 @@ class Database:
                     email VARCHAR(255) NOT NULL,
                     meeting_id INTEGER NOT NULL,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    action SMALLINT NOT NULL CHECK (action IN (1, 2, 3)),
-                    FOREIGN KEY (email) REFERENCES users(email),
-                    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
+                    action SMALLINT NOT NULL CHECK (action IN (1, 2, 3))
                 )
             """)
 
@@ -126,9 +124,7 @@ class Database:
                     email TEXT NOT NULL,
                     meeting_id INTEGER NOT NULL,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    action INTEGER NOT NULL,
-                    FOREIGN KEY (email) REFERENCES users(email),
-                    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
+                    action INTEGER NOT NULL
                 )
             """)
 
@@ -247,7 +243,7 @@ class Database:
             return True
         except Exception as e:
             print(f"Error deleting meeting: {e}")
-        return {"error": f"Database error: {str(e)}"}
+            return {"error": f"Database error: {str(e)}"}
 
     def get_meetings_by_user(self, email: str):
         """
