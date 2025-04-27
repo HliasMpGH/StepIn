@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Set, Literal
 from pydantic import BaseModel
 
 
@@ -19,12 +19,18 @@ class MeetingCreate(MeetingBase):
 """The meeting model of the meetings that are returned from the backend"""
 class MeetingResponse(MeetingBase):
     meeting_id: int
-    participants: set[str] # Set of string emails
+    participants: Set[str]  # Set of string emails
+    status: Optional[Literal["active", "upcoming", "ended"]] = None
 
 class MeetingIdResponse(BaseModel):
     success: bool = True
     meeting_id: int
 
-
 class MeetingListResponse(BaseModel):
     meetings: List[int]
+
+class MeetingDetailListResponse(BaseModel):
+    meetings: List[MeetingResponse]
+
+class MeetingStatusFilter(BaseModel):
+    status: Literal["active", "upcoming", "all"] = "all"

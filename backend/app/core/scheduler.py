@@ -51,7 +51,7 @@ class MeetingScheduler:
             time.sleep(self.scan_interval)
 
     def _scan_meetings(self):
-        """Scan database for meetings to activate or deactivate"""
+        """Scan database for meetings to activate, transition or deactivate"""
         try:
             self.meeting_service.sync_meetings()
         except Exception as e:
